@@ -41,7 +41,7 @@ export async function getArticleDetails(articleId: string): Promise<Article> {
 }
 
 /**
- * Generate an AI summary for a specific article.
+ * Generate a free summary by extracting key sentences.
  */
 export async function summarizeArticle(
   articleId: string
@@ -50,6 +50,21 @@ export async function summarizeArticle(
 
   if (!response.ok) {
     throw new Error(`Summarization failed: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+/**
+ * Explain a paper like I'm 10 -- simple breakdown.
+ */
+export async function explainLikeTen(
+  articleId: string
+): Promise<SummaryResponse> {
+  const response = await fetch(`${API_BASE}/api/eli10/${articleId}`);
+
+  if (!response.ok) {
+    throw new Error(`Explanation failed: ${response.statusText}`);
   }
 
   return response.json();

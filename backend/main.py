@@ -12,7 +12,7 @@ from pydantic import BaseModel
 
 from src.article_finder import find_articles
 from src.article_reader import get_article_details, list_all_topics, get_articles_by_topic
-from src.summarizer import summarize_article
+from src.summarizer import summarize_article, explain_like_ten, summarize_with_claude
 from src.config import DEFAULT_MAX_RESULTS
 
 # Configure logging
@@ -109,8 +109,7 @@ async def read_article(article_id: str):
 @app.get("/api/summarize/{article_id}", response_model=SummaryResponse)
 async def summarize(article_id: str):
     """
-    Generate an AI-powered summary for a specific article.
-    Uses Claude to create a concise, readable summary.
+    Generate a free summary by extracting key sentences from the abstract.
     """
     article = get_article_details(article_id)
     if article is None:
@@ -120,6 +119,48 @@ async def summarize(article_id: str):
         )
 
     ai_summary = summarize_article(article)
+
+    return SummaryResponse(
+        article_id=article_id,
+        title=article.get("title", "Unknown"),
+        ai_summary=ai_summary,
+    )
+
+
+@app.get("/api/eli10/{article_id}", response_model=SummaryResponse)
+async def explain_simple(article_id: str):
+    """
+    Explain a paper like I'm 10 -- break it into simple parts.
+    """
+    article = get_article_details(article_id)
+    if article is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Article '{article_id}' not found. Try searching for it first.",
+        )
+
+    simple_explanation = explain_like_ten(article)
+
+    return SummaryResponse(
+        article_id=article_id,
+        title=article.get("title", "Unknown"),
+        ai_summary=simple_explanation,
+    )
+
+
+@app.get("/api/summarize-ai/{article_id}", response_model=SummaryResponse)
+async def summarize_claude(article_id: str):
+    """
+    Generate an AI-powered summary using Claude (requires API credits).
+    """
+    article = get_article_details(article_id)
+    if article is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Article '{article_id}' not found. Try searching for it first.",
+        )
+
+    ai_summary = summarize_with_claude(article)
 
     return SummaryResponse(
         article_id=article_id,
