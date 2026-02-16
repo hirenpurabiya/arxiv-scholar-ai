@@ -60,7 +60,7 @@ Provide a clear, concise summary:"""
 
     except anthropic.APIError as e:
         logger.error(f"Anthropic API error while summarizing '{title}': {e}")
-        return None
+        return f"Error generating summary: {e}"
     except Exception as e:
         logger.error(f"Unexpected error while summarizing '{title}': {e}")
-        return None
+        return f"Error generating summary: {e}"

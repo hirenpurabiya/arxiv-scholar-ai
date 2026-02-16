@@ -18,7 +18,7 @@ ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 DEFAULT_MAX_RESULTS = 5
 
 # Claude model to use for summarization
-CLAUDE_MODEL = "claude-sonnet-4-20250514"
+CLAUDE_MODEL = "claude-3-5-sonnet-20241022"
 
 # Maximum tokens for Claude's response
 MAX_TOKENS = 1024
