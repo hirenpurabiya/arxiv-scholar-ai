@@ -56,38 +56,30 @@ def _chat_with_gemini(
         return {"success": False, "error_type": "not_configured", "error": "Google Gemini API key not configured."}
 
     try:
-        from google import genai
-        from google.genai import types
+        import google.generativeai as genai
 
-        client = genai.Client(api_key=GOOGLE_API_KEY)
+        # Configure the API key
+        genai.configure(api_key=GOOGLE_API_KEY)
 
-        # Build contents list with proper Part format
-        contents = []
-        for msg in history:
-            role = "model" if msg["role"] == "assistant" else "user"
-            contents.append(
-                types.Content(
-                    role=role,
-                    parts=[types.Part(text=msg["content"])],
-                )
-            )
-
-        contents.append(
-            types.Content(
-                role="user",
-                parts=[types.Part(text=message)],
-            )
-        )
-
-        response = client.models.generate_content(
-            model="gemini-1.5-flash",
-            contents=contents,
-            config=types.GenerateContentConfig(
-                system_instruction=system_prompt,
+        # Create the model with system instruction
+        model = genai.GenerativeModel(
+            model_name="gemini-1.5-flash",
+            system_instruction=system_prompt,
+            generation_config=genai.GenerationConfig(
                 temperature=0.7,
                 max_output_tokens=300,
             ),
         )
+
+        # Format history for chat
+        formatted_history = []
+        for msg in history:
+            role = "model" if msg["role"] == "assistant" else "user"
+            formatted_history.append({"role": role, "parts": [msg["content"]]})
+
+        # Start chat with history and send message
+        chat = model.start_chat(history=formatted_history)
+        response = chat.send_message(message)
 
         return {"success": True, "response": response.text}
 
