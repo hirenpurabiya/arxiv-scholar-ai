@@ -143,7 +143,7 @@ export default function ELI10Chat({ articleId, articleTitle }: ELI10ChatProps) {
 
 
       {/* Messages */}
-      <div className="h-72 overflow-y-auto p-4 space-y-3">
+      <div className="h-96 overflow-y-auto p-4 space-y-3">
         {messages.map((msg, i) => (
           <div
             key={i}
