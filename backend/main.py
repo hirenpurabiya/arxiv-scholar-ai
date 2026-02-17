@@ -91,11 +91,14 @@ class ChatRequest(BaseModel):
     article_id: str = Field(..., max_length=50)
     message: str = Field(..., max_length=MAX_MESSAGE_LENGTH)
     history: list[ChatMessage] = Field(default=[], max_length=MAX_HISTORY_LENGTH)
+    provider: str = Field(default="grok", pattern=r"^(grok|gemini|claude)$")
 
 
 class ChatResponse(BaseModel):
     response: str
     provider: str
+    error_type: Optional[str] = None
+    suggestion: Optional[str] = None
 
 
 # --- API Endpoints ---
@@ -250,7 +253,7 @@ async def get_topic_articles(request: Request, topic_slug: str):
 async def chat(request: Request, chat_request: ChatRequest):
     """
     Chat about a paper -- Explain Like I'm 10 interactive chatbot.
-    Uses Groq (primary) with Gemini fallback.
+    Supports xAI Grok, Google Gemini, and Anthropic Claude.
     Protected by rate limiting, input validation, and prompt injection detection.
     """
     check_chat_rate_limit(request)
@@ -272,6 +275,11 @@ async def chat(request: Request, chat_request: ChatRequest):
         )
 
     history = [{"role": msg.role, "content": sanitize_message(msg.content)} for msg in chat_request.history]
-    result = chat_about_article(article, clean_message, history)
+    result = chat_about_article(article, clean_message, history, provider=chat_request.provider)
 
-    return ChatResponse(response=result["response"], provider=result["provider"])
+    return ChatResponse(
+        response=result["response"],
+        provider=result["provider"],
+        error_type=result.get("error_type"),
+        suggestion=result.get("suggestion"),
+    )

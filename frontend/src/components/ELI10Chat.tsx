@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { ChatMessage } from "@/lib/types";
+import { ChatMessage, AIProvider } from "@/lib/types";
 import { chatWithArticle } from "@/lib/api";
 
 interface ELI10ChatProps {
@@ -22,11 +22,19 @@ const SUGGESTED_QUESTIONS = [
   "What problem does it solve?",
 ];
 
+const PROVIDERS: { id: AIProvider; name: string; description: string }[] = [
+  { id: "grok", name: "xAI Grok", description: "$25 free credits" },
+  { id: "gemini", name: "Google Gemini", description: "Free tier" },
+  { id: "claude", name: "Anthropic Claude", description: "Paid credits" },
+];
+
 export default function ELI10Chat({ articleId, articleTitle }: ELI10ChatProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([GREETING]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [suggestion, setSuggestion] = useState<AIProvider | null>(null);
+  const [provider, setProvider] = useState<AIProvider>("grok");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -46,6 +54,7 @@ export default function ELI10Chat({ articleId, articleTitle }: ELI10ChatProps) {
     setMessages(updatedMessages);
     setInput("");
     setError(null);
+    setSuggestion(null);
     setIsLoading(true);
 
     try {
@@ -56,13 +65,27 @@ export default function ELI10Chat({ articleId, articleTitle }: ELI10ChatProps) {
       const result = await chatWithArticle(
         articleId,
         text.trim(),
-        history.slice(0, -1)
+        history.slice(0, -1),
+        provider
       );
 
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: result.response },
-      ]);
+      // Check if the provider failed
+      if (result.error_type) {
+        setError(result.response);
+        // Suggest a different provider
+        if (provider === "grok") {
+          setSuggestion("gemini");
+        } else if (provider === "gemini") {
+          setSuggestion("grok");
+        } else {
+          setSuggestion("gemini");
+        }
+      } else {
+        setMessages((prev) => [
+          ...prev,
+          { role: "assistant", content: result.response },
+        ]);
+      }
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Something went wrong. Try again!"
@@ -81,25 +104,53 @@ export default function ELI10Chat({ articleId, articleTitle }: ELI10ChatProps) {
     sendMessage(question);
   };
 
+  const handleSwitchProvider = (newProvider: AIProvider) => {
+    setProvider(newProvider);
+    setError(null);
+    setSuggestion(null);
+  };
+
   const showSuggestions = messages.length === 1;
 
   return (
     <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-2xl border border-amber-200 overflow-hidden shadow-sm">
       {/* Header */}
-      <div className="bg-gradient-to-r from-amber-500 to-orange-500 px-5 py-3 flex items-center gap-3">
-        <span className="text-2xl">💬</span>
-        <div>
-          <h3 className="text-white font-semibold text-sm">
-            Explain Like I&apos;m 10
-          </h3>
-          <p className="text-amber-100 text-xs truncate max-w-xs">
-            {articleTitle}
-          </p>
+      <div className="bg-gradient-to-r from-amber-500 to-orange-500 px-5 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <span className="text-2xl">💬</span>
+          <div>
+            <h3 className="text-white font-semibold text-sm">
+              Explain Like I&apos;m 10
+            </h3>
+            <p className="text-amber-100 text-xs truncate max-w-[180px]">
+              {articleTitle}
+            </p>
+          </div>
         </div>
+        {/* Provider selector */}
+        <select
+          value={provider}
+          onChange={(e) => handleSwitchProvider(e.target.value as AIProvider)}
+          className="text-xs bg-white/20 text-white border border-white/30 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-white/50 cursor-pointer"
+        >
+          {PROVIDERS.map((p) => (
+            <option key={p.id} value={p.id} className="text-gray-800">
+              {p.name}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* Provider info banner */}
+      <div className="bg-amber-100/50 px-4 py-1.5 text-xs text-amber-700 flex items-center justify-between border-b border-amber-200">
+        <span>
+          Using: <strong>{PROVIDERS.find((p) => p.id === provider)?.name}</strong>
+          {" "}({PROVIDERS.find((p) => p.id === provider)?.description})
+        </span>
       </div>
 
       {/* Messages */}
-      <div className="h-80 overflow-y-auto p-4 space-y-3">
+      <div className="h-72 overflow-y-auto p-4 space-y-3">
         {messages.map((msg, i) => (
           <div
             key={i}
@@ -146,11 +197,19 @@ export default function ELI10Chat({ articleId, articleTitle }: ELI10ChatProps) {
           </div>
         )}
 
-        {/* Error */}
+        {/* Error with switch suggestion */}
         {error && (
           <div className="flex justify-start">
             <div className="bg-red-50 text-red-600 border border-red-100 px-4 py-2.5 rounded-2xl rounded-bl-md text-sm">
-              {error}
+              <p>{error}</p>
+              {suggestion && (
+                <button
+                  onClick={() => handleSwitchProvider(suggestion)}
+                  className="mt-2 px-3 py-1 bg-red-100 hover:bg-red-200 text-red-700 text-xs rounded-full transition-colors"
+                >
+                  Switch to {PROVIDERS.find((p) => p.id === suggestion)?.name}
+                </button>
+              )}
             </div>
           </div>
         )}

@@ -2,7 +2,7 @@
  * API client functions for communicating with the ArXiv Scholar AI backend.
  */
 
-import { SearchResponse, Article, SummaryResponse, TopicsResponse, ChatMessage, ChatResponse } from "./types";
+import { SearchResponse, Article, SummaryResponse, TopicsResponse, ChatMessage, ChatResponse, AIProvider } from "./types";
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/+$/, "");
 
@@ -72,11 +72,13 @@ export async function explainLikeTen(
 
 /**
  * Chat about a paper -- Explain Like I'm 10 interactive chatbot.
+ * Supports xAI Grok, Google Gemini, and Anthropic Claude.
  */
 export async function chatWithArticle(
   articleId: string,
   message: string,
-  history: ChatMessage[]
+  history: ChatMessage[],
+  provider: AIProvider = "grok"
 ): Promise<ChatResponse> {
   const response = await fetch(`${API_BASE}/api/chat`, {
     method: "POST",
@@ -85,6 +87,7 @@ export async function chatWithArticle(
       article_id: articleId,
       message,
       history,
+      provider,
     }),
   });
 
