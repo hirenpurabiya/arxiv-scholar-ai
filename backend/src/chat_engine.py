@@ -192,24 +192,24 @@ PROVIDER_FUNCTIONS = {
     "claude": _chat_with_claude,
 }
 
-# Friendly suggestions when a provider fails
+# Friendly suggestions when a provider fails (no credit/pricing info shown to users)
 PROVIDER_SUGGESTIONS = {
     "grok": {
-        "credits_exhausted": "Grok ran out of credits! Try Gemini (it's free) or Claude.",
-        "rate_limited": "Grok is rate limited. Wait a moment or try Gemini.",
-        "not_configured": "Grok API key not set. Try Gemini or Claude instead.",
+        "credits_exhausted": "Grok is temporarily unavailable. Try Gemini or Claude instead!",
+        "rate_limited": "Grok is busy right now. Wait a moment or try Gemini.",
+        "not_configured": "Grok is not available. Try Gemini or Claude instead.",
         "unknown": "Grok had an error. Try Gemini or Claude instead.",
     },
     "gemini": {
-        "credits_exhausted": "Gemini quota exceeded! Try Grok or Claude.",
-        "rate_limited": "Gemini is rate limited. Wait a moment or try Grok.",
-        "not_configured": "Gemini API key not set. Try Grok or Claude instead.",
+        "credits_exhausted": "Gemini is temporarily unavailable. Try Grok or Claude instead!",
+        "rate_limited": "Gemini is busy right now. Wait a moment or try Grok.",
+        "not_configured": "Gemini is not available. Try Grok or Claude instead.",
         "unknown": "Gemini had an error. Try Grok or Claude instead.",
     },
     "claude": {
-        "credits_exhausted": "Claude credits exhausted! Try Gemini (it's free) or Grok.",
-        "rate_limited": "Claude is rate limited. Wait a moment or try Gemini.",
-        "not_configured": "Claude API key not set. Try Gemini (free) or Grok instead.",
+        "credits_exhausted": "Claude is temporarily unavailable. Try Gemini or Grok instead!",
+        "rate_limited": "Claude is busy right now. Wait a moment or try Gemini.",
+        "not_configured": "Claude is not available. Try Gemini or Grok instead.",
         "unknown": "Claude had an error. Try Gemini or Grok instead.",
     },
 }
