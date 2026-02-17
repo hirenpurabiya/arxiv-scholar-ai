@@ -91,7 +91,7 @@ class ChatRequest(BaseModel):
     article_id: str = Field(..., max_length=50)
     message: str = Field(..., max_length=MAX_MESSAGE_LENGTH)
     history: list[ChatMessage] = Field(default=[], max_length=MAX_HISTORY_LENGTH)
-    provider: str = Field(default="gemini", pattern=r"^(gemini|claude)$")
+    provider: str = Field(default="gemini", pattern=r"^(gemini)$")
 
 
 class ChatResponse(BaseModel):

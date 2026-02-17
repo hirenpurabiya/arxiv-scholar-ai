@@ -1,18 +1,15 @@
 """
 Chat engine for ArXiv Scholar AI.
 Powers the "Explain Like I'm 10" interactive chatbot.
-Supports Google Gemini (free) and Anthropic Claude.
+Uses Google Gemini (free tier).
 """
 
 import logging
-from typing import Dict, Any, List, Literal
+from typing import Dict, Any, List
 
-from .config import GOOGLE_API_KEY, ANTHROPIC_API_KEY, CLAUDE_MODEL
+from .config import GOOGLE_API_KEY
 
 logger = logging.getLogger(__name__)
-
-# Type for AI providers
-AIProvider = Literal["gemini", "claude"]
 
 SYSTEM_PROMPT = """You are a friendly teacher who explains research papers to a 10-year-old kid.
 
@@ -95,69 +92,6 @@ def _chat_with_gemini(
             return {"success": False, "error_type": "unknown", "error": str(e)}
 
 
-def _chat_with_claude(
-    system_prompt: str,
-    message: str,
-    history: List[Dict[str, str]],
-) -> Dict[str, Any]:
-    """Send a chat request to Anthropic Claude."""
-    if not ANTHROPIC_API_KEY:
-        return {"success": False, "error_type": "not_configured", "error": "Anthropic Claude API key not configured."}
-
-    try:
-        import anthropic
-
-        client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-
-        messages = []
-        for msg in history:
-            messages.append({"role": msg["role"], "content": msg["content"]})
-        messages.append({"role": "user", "content": message})
-
-        response = client.messages.create(
-            model=CLAUDE_MODEL,
-            max_tokens=300,
-            system=system_prompt,
-            messages=messages,
-        )
-
-        return {"success": True, "response": response.content[0].text}
-
-    except Exception as e:
-        error_str = str(e).lower()
-        logger.error(f"Claude chat failed: {e}")
-        
-        if "rate" in error_str or "429" in error_str:
-            return {"success": False, "error_type": "rate_limited", "error": str(e)}
-        elif "credit" in error_str or "balance" in error_str or "402" in error_str or "billing" in error_str:
-            return {"success": False, "error_type": "credits_exhausted", "error": str(e)}
-        else:
-            return {"success": False, "error_type": "unknown", "error": str(e)}
-
-
-# Mapping of provider names to their chat functions
-PROVIDER_FUNCTIONS = {
-    "gemini": _chat_with_gemini,
-    "claude": _chat_with_claude,
-}
-
-# Friendly suggestions when a provider fails (no credit/pricing info shown to users)
-PROVIDER_SUGGESTIONS = {
-    "gemini": {
-        "credits_exhausted": "Gemini is temporarily unavailable. Try Claude instead!",
-        "rate_limited": "Gemini is busy right now. Wait a moment or try Claude.",
-        "not_configured": "Gemini is not available. Try Claude instead.",
-        "unknown": "Gemini had an error. Try Claude instead.",
-    },
-    "claude": {
-        "credits_exhausted": "Claude is temporarily unavailable. Try Gemini instead!",
-        "rate_limited": "Claude is busy right now. Wait a moment or try Gemini.",
-        "not_configured": "Claude is not available. Try Gemini instead.",
-        "unknown": "Claude had an error. Try Gemini instead.",
-    },
-}
-
-
 def chat_about_article(
     article: Dict[str, Any],
     message: str,
@@ -165,42 +99,39 @@ def chat_about_article(
     provider: str = "gemini",
 ) -> Dict[str, Any]:
     """
-    Chat about a paper using the specified AI provider.
+    Chat about a paper using Google Gemini.
 
     Args:
         article: The paper's metadata dict (title, authors, summary, etc.)
         message: The user's current message
         history: List of previous messages, each with "role" and "content"
-        provider: Which AI to use ("gemini" or "claude")
+        provider: Kept for API compatibility (always uses Gemini)
 
     Returns:
         Dict with:
         - "response": the AI's answer (or error message)
-        - "provider": which AI answered
+        - "provider": "gemini"
         - "error_type": type of error if failed (optional)
         - "suggestion": friendly suggestion if failed (optional)
     """
     system_prompt = _build_system_prompt(article)
 
-    # Get the chat function for the requested provider
-    chat_fn = PROVIDER_FUNCTIONS.get(provider)
-    if not chat_fn:
-        return {
-            "response": f"Unknown provider: {provider}. Use 'gemini' or 'claude'.",
-            "provider": "none",
-            "error_type": "unknown",
-            "suggestion": "Try selecting Gemini or Claude.",
-        }
-
-    # Try the requested provider
-    result = chat_fn(system_prompt, message, history)
+    result = _chat_with_gemini(system_prompt, message, history)
 
     if result["success"]:
-        return {"response": result["response"], "provider": provider}
+        return {"response": result["response"], "provider": "gemini"}
 
-    # Provider failed -- return error with helpful suggestion
+    # Failed -- return friendly error
     error_type = result.get("error_type", "unknown")
-    suggestion = PROVIDER_SUGGESTIONS.get(provider, {}).get(error_type, "Try a different AI.")
+    
+    suggestions = {
+        "rate_limited": "The AI is busy right now. Please wait a moment and try again.",
+        "credits_exhausted": "The AI is temporarily unavailable. Please try again later.",
+        "not_configured": "The AI is not available right now.",
+        "unknown": "Something went wrong. Please try again.",
+    }
+    
+    suggestion = suggestions.get(error_type, "Please try again.")
 
     return {
         "response": suggestion,
