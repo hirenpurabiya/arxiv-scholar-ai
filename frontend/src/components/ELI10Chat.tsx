@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { ChatMessage, AIProvider } from "@/lib/types";
+import { ChatMessage } from "@/lib/types";
 import { chatWithArticle } from "@/lib/api";
 
 interface ELI10ChatProps {
@@ -22,18 +22,13 @@ const SUGGESTED_QUESTIONS = [
   "What problem does it solve?",
 ];
 
-const PROVIDERS: { id: AIProvider; name: string }[] = [
-  { id: "gemini", name: "Google Gemini" },
-  { id: "claude", name: "Anthropic Claude" },
-];
 
 export default function ELI10Chat({ articleId, articleTitle }: ELI10ChatProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([GREETING]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [suggestion, setSuggestion] = useState<AIProvider | null>(null);
-  const [provider, setProvider] = useState<AIProvider>("gemini");
+  const [suggestion, setSuggestion] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -64,19 +59,13 @@ export default function ELI10Chat({ articleId, articleTitle }: ELI10ChatProps) {
       const result = await chatWithArticle(
         articleId,
         text.trim(),
-        history.slice(0, -1),
-        provider
+        history.slice(0, -1)
       );
 
-      // Check if the provider failed
+      // Check if there was an error
       if (result.error_type) {
         setError(result.response);
-        // Suggest a different provider
-        if (provider === "gemini") {
-          setSuggestion("claude");
-        } else {
-          setSuggestion("gemini");
-        }
+        setSuggestion("Please wait a moment and try again.");
       } else {
         setMessages((prev) => [
           ...prev,
@@ -101,41 +90,24 @@ export default function ELI10Chat({ articleId, articleTitle }: ELI10ChatProps) {
     sendMessage(question);
   };
 
-  const handleSwitchProvider = (newProvider: AIProvider) => {
-    setProvider(newProvider);
-    setError(null);
-    setSuggestion(null);
-  };
 
   const showSuggestions = messages.length === 1;
 
   return (
     <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-2xl border border-amber-200 overflow-hidden shadow-sm">
       {/* Header */}
-      <div className="bg-gradient-to-r from-amber-500 to-orange-500 px-5 py-3 flex items-center justify-between">
+      <div className="bg-gradient-to-r from-amber-500 to-orange-500 px-5 py-3">
         <div className="flex items-center gap-3">
           <span className="text-2xl">💬</span>
           <div>
             <h3 className="text-white font-semibold text-sm">
               Explain Like I&apos;m 10
             </h3>
-            <p className="text-amber-100 text-xs truncate max-w-[180px]">
+            <p className="text-amber-100 text-xs truncate max-w-[250px]">
               {articleTitle}
             </p>
           </div>
         </div>
-        {/* Provider selector */}
-        <select
-          value={provider}
-          onChange={(e) => handleSwitchProvider(e.target.value as AIProvider)}
-          className="text-xs bg-white/20 text-white border border-white/30 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-white/50 cursor-pointer"
-        >
-          {PROVIDERS.map((p) => (
-            <option key={p.id} value={p.id} className="text-gray-800">
-              {p.name}
-            </option>
-          ))}
-        </select>
       </div>
 
 
@@ -187,19 +159,12 @@ export default function ELI10Chat({ articleId, articleTitle }: ELI10ChatProps) {
           </div>
         )}
 
-        {/* Error with switch suggestion */}
+        {/* Error message */}
         {error && (
           <div className="flex justify-start">
             <div className="bg-red-50 text-red-600 border border-red-100 px-4 py-2.5 rounded-2xl rounded-bl-md text-sm">
               <p>{error}</p>
-              {suggestion && (
-                <button
-                  onClick={() => handleSwitchProvider(suggestion)}
-                  className="mt-2 px-3 py-1 bg-red-100 hover:bg-red-200 text-red-700 text-xs rounded-full transition-colors"
-                >
-                  Switch to {PROVIDERS.find((p) => p.id === suggestion)?.name}
-                </button>
-              )}
+              {suggestion && <p className="mt-1 text-xs text-red-500">{suggestion}</p>}
             </div>
           </div>
         )}
