@@ -14,10 +14,7 @@ RESEARCH_DIR = "research_data"
 # Anthropic API key for Claude-powered summarization
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 
-# xAI Grok API key for chat (primary) -- $25 free credits on signup
-XAI_API_KEY = os.getenv("XAI_API_KEY")
-
-# Google Gemini API key for chat (fallback, free tier)
+# Google Gemini API key for chat (free tier)
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
 # Default number of articles to return per search

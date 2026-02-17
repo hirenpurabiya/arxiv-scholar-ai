@@ -72,13 +72,13 @@ export async function explainLikeTen(
 
 /**
  * Chat about a paper -- Explain Like I'm 10 interactive chatbot.
- * Supports xAI Grok, Google Gemini, and Anthropic Claude.
+ * Supports Google Gemini (free) and Anthropic Claude.
  */
 export async function chatWithArticle(
   articleId: string,
   message: string,
   history: ChatMessage[],
-  provider: AIProvider = "grok"
+  provider: AIProvider = "gemini"
 ): Promise<ChatResponse> {
   const response = await fetch(`${API_BASE}/api/chat`, {
     method: "POST",
