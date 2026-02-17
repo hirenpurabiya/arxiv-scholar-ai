@@ -13,6 +13,7 @@ from pydantic import BaseModel
 from src.article_finder import find_articles
 from src.article_reader import get_article_details, list_all_topics, get_articles_by_topic
 from src.summarizer import summarize_article, explain_like_ten, summarize_with_claude
+from src.chat_engine import chat_about_article
 from src.config import DEFAULT_MAX_RESULTS
 
 # Configure logging
@@ -61,6 +62,22 @@ class SummaryResponse(BaseModel):
 
 class TopicsResponse(BaseModel):
     topics: list[str]
+
+
+class ChatMessage(BaseModel):
+    role: str
+    content: str
+
+
+class ChatRequest(BaseModel):
+    article_id: str
+    message: str
+    history: list[ChatMessage] = []
+
+
+class ChatResponse(BaseModel):
+    response: str
+    provider: str
 
 
 # --- API Endpoints ---
@@ -194,3 +211,22 @@ async def get_topic_articles(topic_slug: str):
         "count": len(articles),
         "articles": list(articles.values()),
     }
+
+
+@app.post("/api/chat", response_model=ChatResponse)
+async def chat(request: ChatRequest):
+    """
+    Chat about a paper -- Explain Like I'm 10 interactive chatbot.
+    Uses Groq (primary) with Gemini fallback.
+    """
+    article = get_article_details(request.article_id)
+    if article is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Article '{request.article_id}' not found. Try searching for it first.",
+        )
+
+    history = [{"role": msg.role, "content": msg.content} for msg in request.history]
+    result = chat_about_article(article, request.message, history)
+
+    return ChatResponse(response=result["response"], provider=result["provider"])

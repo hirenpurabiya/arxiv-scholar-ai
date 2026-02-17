@@ -2,7 +2,7 @@
  * API client functions for communicating with the ArXiv Scholar AI backend.
  */
 
-import { SearchResponse, Article, SummaryResponse, TopicsResponse } from "./types";
+import { SearchResponse, Article, SummaryResponse, TopicsResponse, ChatMessage, ChatResponse } from "./types";
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/+$/, "");
 
@@ -65,6 +65,31 @@ export async function explainLikeTen(
 
   if (!response.ok) {
     throw new Error(`Explanation failed: ${response.statusText}`);
+  }
+
+  return response.json();
+}
+
+/**
+ * Chat about a paper -- Explain Like I'm 10 interactive chatbot.
+ */
+export async function chatWithArticle(
+  articleId: string,
+  message: string,
+  history: ChatMessage[]
+): Promise<ChatResponse> {
+  const response = await fetch(`${API_BASE}/api/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      article_id: articleId,
+      message,
+      history,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Chat failed: ${response.statusText}`);
   }
 
   return response.json();

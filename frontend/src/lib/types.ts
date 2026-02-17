@@ -28,3 +28,19 @@ export interface SummaryResponse {
 export interface TopicsResponse {
   topics: string[];
 }
+
+export interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export interface ChatRequest {
+  article_id: string;
+  message: string;
+  history: ChatMessage[];
+}
+
+export interface ChatResponse {
+  response: string;
+  provider: string;
+}
