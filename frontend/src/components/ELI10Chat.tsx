@@ -22,10 +22,10 @@ const SUGGESTED_QUESTIONS = [
   "What problem does it solve?",
 ];
 
-const PROVIDERS: { id: AIProvider; name: string; description: string }[] = [
-  { id: "grok", name: "xAI Grok", description: "$25 free credits" },
-  { id: "gemini", name: "Google Gemini", description: "Free tier" },
-  { id: "claude", name: "Anthropic Claude", description: "Paid credits" },
+const PROVIDERS: { id: AIProvider; name: string }[] = [
+  { id: "grok", name: "xAI Grok" },
+  { id: "gemini", name: "Google Gemini" },
+  { id: "claude", name: "Anthropic Claude" },
 ];
 
 export default function ELI10Chat({ articleId, articleTitle }: ELI10ChatProps) {
@@ -141,13 +141,6 @@ export default function ELI10Chat({ articleId, articleTitle }: ELI10ChatProps) {
         </select>
       </div>
 
-      {/* Provider info banner */}
-      <div className="bg-amber-100/50 px-4 py-1.5 text-xs text-amber-700 flex items-center justify-between border-b border-amber-200">
-        <span>
-          Using: <strong>{PROVIDERS.find((p) => p.id === provider)?.name}</strong>
-          {" "}({PROVIDERS.find((p) => p.id === provider)?.description})
-        </span>
-      </div>
 
       {/* Messages */}
       <div className="h-72 overflow-y-auto p-4 space-y-3">
