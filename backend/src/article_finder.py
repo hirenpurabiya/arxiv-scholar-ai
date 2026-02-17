@@ -7,30 +7,57 @@ import arxiv
 import json
 import os
 import logging
-from typing import List, Dict, Any
+from datetime import datetime, timedelta
+from typing import List, Dict, Any, Optional
 
 from .config import RESEARCH_DIR, DEFAULT_MAX_RESULTS
 
 logger = logging.getLogger(__name__)
 
+# Map sort options to arxiv SortCriterion
+SORT_CRITERIA = {
+    "relevance": arxiv.SortCriterion.Relevance,
+    "date": arxiv.SortCriterion.SubmittedDate,
+    "updated": arxiv.SortCriterion.LastUpdatedDate,
+}
 
-def find_articles(topic: str, max_results: int = DEFAULT_MAX_RESULTS) -> List[Dict[str, Any]]:
+
+def find_articles(
+    topic: str,
+    max_results: int = DEFAULT_MAX_RESULTS,
+    sort_by: str = "relevance",
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+) -> List[Dict[str, Any]]:
     """
     Search arXiv for articles matching a topic and store their metadata.
 
     Args:
         topic: The search query (e.g., "transformer architecture", "reinforcement learning")
         max_results: Maximum number of articles to retrieve
+        sort_by: How to sort results - "relevance", "date", or "updated"
+        date_from: Start date filter in YYYYMMDD format (optional)
+        date_to: End date filter in YYYYMMDD format (optional)
 
     Returns:
         List of article metadata dictionaries
     """
     client = arxiv.Client()
 
+    # Build query with optional date range
+    query = topic
+    if date_from or date_to:
+        start = date_from or "19910101"  # arXiv started in 1991
+        end = date_to or datetime.now().strftime("%Y%m%d")
+        query = f"{topic} AND submittedDate:[{start} TO {end}]"
+
+    # Get sort criterion (default to relevance if invalid)
+    sort_criterion = SORT_CRITERIA.get(sort_by, arxiv.SortCriterion.Relevance)
+
     search = arxiv.Search(
-        query=topic,
+        query=query,
         max_results=max_results,
-        sort_by=arxiv.SortCriterion.Relevance,
+        sort_by=sort_criterion,
     )
 
     results = client.results(search)

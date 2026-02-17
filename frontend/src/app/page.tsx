@@ -1,27 +1,70 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import SearchBar from "@/components/SearchBar";
 import ArticleCard from "@/components/ArticleCard";
 import ArticleDetail from "@/components/ArticleDetail";
 import { searchArticles } from "@/lib/api";
-import { Article } from "@/lib/types";
+import { Article, SearchFilters, SortOption, DatePreset } from "@/lib/types";
 
-export default function Home() {
+const DEFAULT_FILTERS: SearchFilters = {
+  sortBy: "relevance",
+  datePreset: "all",
+};
+
+function HomeContent() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
   const [articles, setArticles] = useState<Article[]>([]);
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchedTopic, setSearchedTopic] = useState<string>("");
+  const [copiedLink, setCopiedLink] = useState(false);
 
-  const handleSearch = async (topic: string, maxResults: number) => {
+  // Parse filters from URL on mount
+  const getFiltersFromUrl = useCallback((): SearchFilters => {
+    const sortBy = (searchParams.get("sort") as SortOption) || "relevance";
+    const datePreset = (searchParams.get("date") as DatePreset) || "all";
+    const dateFrom = searchParams.get("from") || undefined;
+    const dateTo = searchParams.get("to") || undefined;
+
+    return {
+      sortBy,
+      datePreset: dateFrom || dateTo ? "custom" : datePreset,
+      dateFrom,
+      dateTo,
+    };
+  }, [searchParams]);
+
+  const initialTopic = searchParams.get("q") || "";
+  const initialFilters = getFiltersFromUrl();
+
+  // Auto-search if URL has query params
+  useEffect(() => {
+    if (initialTopic) {
+      handleSearch(initialTopic, 5, initialFilters);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleSearch = async (
+    topic: string,
+    maxResults: number,
+    filters: SearchFilters
+  ) => {
     setIsLoading(true);
     setError(null);
     setSelectedArticle(null);
     setSearchedTopic(topic);
 
+    // Update URL with search params
+    updateUrl(topic, filters);
+
     try {
-      const result = await searchArticles(topic, maxResults);
+      const result = await searchArticles(topic, maxResults, filters);
       setArticles(result.articles);
     } catch (err) {
       setError(
@@ -31,6 +74,45 @@ export default function Home() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const updateUrl = (topic: string, filters: SearchFilters) => {
+    const params = new URLSearchParams();
+    params.set("q", topic);
+
+    if (filters.sortBy !== "relevance") {
+      params.set("sort", filters.sortBy);
+    }
+
+    if (filters.datePreset === "custom") {
+      if (filters.dateFrom) params.set("from", filters.dateFrom);
+      if (filters.dateTo) params.set("to", filters.dateTo);
+    } else if (filters.datePreset !== "all") {
+      params.set("date", filters.datePreset);
+    }
+
+    router.replace(`?${params.toString()}`, { scroll: false });
+  };
+
+  const handleShare = (topic: string, filters: SearchFilters) => {
+    const params = new URLSearchParams();
+    params.set("q", topic);
+
+    if (filters.sortBy !== "relevance") {
+      params.set("sort", filters.sortBy);
+    }
+
+    if (filters.datePreset === "custom") {
+      if (filters.dateFrom) params.set("from", filters.dateFrom);
+      if (filters.dateTo) params.set("to", filters.dateTo);
+    } else if (filters.datePreset !== "all") {
+      params.set("date", filters.datePreset);
+    }
+
+    const shareUrl = `${window.location.origin}?${params.toString()}`;
+    navigator.clipboard.writeText(shareUrl);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2000);
   };
 
   const handleSelectArticle = (article: Article) => {
@@ -62,12 +144,19 @@ export default function Home() {
         </div>
       </header>
 
+      {/* Copied Link Toast */}
+      {copiedLink && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 bg-gray-900 text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-fade-in">
+          Link copied to clipboard!
+        </div>
+      )}
+
       {/* Main Content */}
       <main className="max-w-6xl mx-auto px-6 py-10">
         {/* Hero / Search Section */}
         {!selectedArticle && (
           <div className="text-center mb-10">
-            {articles.length === 0 && !error && (
+            {articles.length === 0 && !error && !isLoading && (
               <>
                 <h2 className="text-4xl font-bold text-gray-900 mb-3">
                   Discover Research Papers
@@ -78,7 +167,13 @@ export default function Home() {
                 </p>
               </>
             )}
-            <SearchBar onSearch={handleSearch} isLoading={isLoading} />
+            <SearchBar
+              onSearch={handleSearch}
+              isLoading={isLoading}
+              initialTopic={initialTopic}
+              initialFilters={initialFilters}
+              onShare={handleShare}
+            />
           </div>
         )}
 
@@ -134,5 +229,17 @@ export default function Home() {
         </div>
       </footer>
     </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white flex items-center justify-center">
+        <div className="inline-block w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+      </div>
+    }>
+      <HomeContent />
+    </Suspense>
   );
 }

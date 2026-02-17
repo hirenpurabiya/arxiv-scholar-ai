@@ -114,16 +114,26 @@ async def search_articles(
     request: Request,
     topic: str = Query(..., description="The research topic to search for"),
     max_results: int = Query(DEFAULT_MAX_RESULTS, ge=1, le=20, description="Maximum number of results"),
+    sort_by: str = Query("relevance", description="Sort by: relevance, date, or updated"),
+    date_from: Optional[str] = Query(None, description="Start date filter (YYYYMMDD)"),
+    date_to: Optional[str] = Query(None, description="End date filter (YYYYMMDD)"),
 ):
     """
     Search arXiv for articles matching a topic.
     Results are saved locally for future reference.
+    Supports sorting and date filtering.
     """
     check_search_rate_limit(request)
     validate_search_input(topic)
 
     try:
-        articles = find_articles(topic=topic, max_results=max_results)
+        articles = find_articles(
+            topic=topic,
+            max_results=max_results,
+            sort_by=sort_by,
+            date_from=date_from,
+            date_to=date_to,
+        )
         return SearchResponse(
             topic=topic,
             count=len(articles),
