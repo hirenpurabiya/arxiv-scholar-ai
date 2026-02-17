@@ -3,18 +3,30 @@ ArXiv Scholar AI - FastAPI Backend
 Provides REST API endpoints for searching, reading, and summarizing arXiv papers.
 """
 
+import os
 import logging
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from src.article_finder import find_articles
 from src.article_reader import get_article_details, list_all_topics, get_articles_by_topic
 from src.summarizer import summarize_article, explain_like_ten, summarize_with_claude
 from src.chat_engine import chat_about_article
 from src.config import DEFAULT_MAX_RESULTS
+from src.security import (
+    check_chat_rate_limit,
+    check_search_rate_limit,
+    check_general_rate_limit,
+    validate_chat_input,
+    validate_search_input,
+    check_prompt_injection,
+    sanitize_message,
+    MAX_MESSAGE_LENGTH,
+    MAX_HISTORY_LENGTH,
+)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -26,13 +38,19 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# Allow frontend to make requests to this backend
+# CORS: Only allow our known frontends, not the entire internet.
+# ALLOWED_ORIGINS env var can be set on Render to include the Vercel URL.
+# For local dev, localhost:3000 is always allowed.
+_default_origins = "http://localhost:3000,http://127.0.0.1:3000"
+_origins_str = os.getenv("ALLOWED_ORIGINS", _default_origins)
+allowed_origins = [o.strip() for o in _origins_str.split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type"],
 )
 
 
@@ -65,14 +83,14 @@ class TopicsResponse(BaseModel):
 
 
 class ChatMessage(BaseModel):
-    role: str
-    content: str
+    role: str = Field(..., pattern=r"^(user|assistant)$")
+    content: str = Field(..., max_length=MAX_MESSAGE_LENGTH)
 
 
 class ChatRequest(BaseModel):
-    article_id: str
-    message: str
-    history: list[ChatMessage] = []
+    article_id: str = Field(..., max_length=50)
+    message: str = Field(..., max_length=MAX_MESSAGE_LENGTH)
+    history: list[ChatMessage] = Field(default=[], max_length=MAX_HISTORY_LENGTH)
 
 
 class ChatResponse(BaseModel):
@@ -90,6 +108,7 @@ async def root():
 
 @app.get("/api/search", response_model=SearchResponse)
 async def search_articles(
+    request: Request,
     topic: str = Query(..., description="The research topic to search for"),
     max_results: int = Query(DEFAULT_MAX_RESULTS, ge=1, le=20, description="Maximum number of results"),
 ):
@@ -97,6 +116,9 @@ async def search_articles(
     Search arXiv for articles matching a topic.
     Results are saved locally for future reference.
     """
+    check_search_rate_limit(request)
+    validate_search_input(topic)
+
     try:
         articles = find_articles(topic=topic, max_results=max_results)
         return SearchResponse(
@@ -110,10 +132,12 @@ async def search_articles(
 
 
 @app.get("/api/article/{article_id}", response_model=ArticleResponse)
-async def read_article(article_id: str):
+async def read_article(request: Request, article_id: str):
     """
     Get details for a specific article by its arXiv ID.
     """
+    check_general_rate_limit(request)
+
     article = get_article_details(article_id)
     if article is None:
         raise HTTPException(
@@ -124,10 +148,12 @@ async def read_article(article_id: str):
 
 
 @app.get("/api/summarize/{article_id}", response_model=SummaryResponse)
-async def summarize(article_id: str):
+async def summarize(request: Request, article_id: str):
     """
     Generate a free summary by extracting key sentences from the abstract.
     """
+    check_general_rate_limit(request)
+
     article = get_article_details(article_id)
     if article is None:
         raise HTTPException(
@@ -145,10 +171,12 @@ async def summarize(article_id: str):
 
 
 @app.get("/api/eli10/{article_id}", response_model=SummaryResponse)
-async def explain_simple(article_id: str):
+async def explain_simple(request: Request, article_id: str):
     """
     Explain a paper like I'm 10 -- break it into simple parts.
     """
+    check_general_rate_limit(request)
+
     article = get_article_details(article_id)
     if article is None:
         raise HTTPException(
@@ -166,10 +194,12 @@ async def explain_simple(article_id: str):
 
 
 @app.get("/api/summarize-ai/{article_id}", response_model=SummaryResponse)
-async def summarize_claude(article_id: str):
+async def summarize_claude(request: Request, article_id: str):
     """
     Generate an AI-powered summary using Claude (requires API credits).
     """
+    check_general_rate_limit(request)
+
     article = get_article_details(article_id)
     if article is None:
         raise HTTPException(
@@ -187,19 +217,22 @@ async def summarize_claude(article_id: str):
 
 
 @app.get("/api/topics", response_model=TopicsResponse)
-async def get_topics():
+async def get_topics(request: Request):
     """
     List all topics that have been searched and saved.
     """
+    check_general_rate_limit(request)
     topics = list_all_topics()
     return TopicsResponse(topics=topics)
 
 
 @app.get("/api/topics/{topic_slug}")
-async def get_topic_articles(topic_slug: str):
+async def get_topic_articles(request: Request, topic_slug: str):
     """
     Get all saved articles for a specific topic.
     """
+    check_general_rate_limit(request)
+
     articles = get_articles_by_topic(topic_slug)
     if not articles:
         raise HTTPException(
@@ -214,19 +247,31 @@ async def get_topic_articles(topic_slug: str):
 
 
 @app.post("/api/chat", response_model=ChatResponse)
-async def chat(request: ChatRequest):
+async def chat(request: Request, chat_request: ChatRequest):
     """
     Chat about a paper -- Explain Like I'm 10 interactive chatbot.
     Uses Groq (primary) with Gemini fallback.
+    Protected by rate limiting, input validation, and prompt injection detection.
     """
-    article = get_article_details(request.article_id)
+    check_chat_rate_limit(request)
+    validate_chat_input(chat_request.message, len(chat_request.history))
+
+    if check_prompt_injection(chat_request.message):
+        return ChatResponse(
+            response="I can only help explain this research paper in simple words. Could you ask me something about the paper instead?",
+            provider="safety",
+        )
+
+    clean_message = sanitize_message(chat_request.message)
+
+    article = get_article_details(chat_request.article_id)
     if article is None:
         raise HTTPException(
             status_code=404,
-            detail=f"Article '{request.article_id}' not found. Try searching for it first.",
+            detail=f"Article '{chat_request.article_id}' not found. Try searching for it first.",
         )
 
-    history = [{"role": msg.role, "content": msg.content} for msg in request.history]
-    result = chat_about_article(article, request.message, history)
+    history = [{"role": msg.role, "content": sanitize_message(msg.content)} for msg in chat_request.history]
+    result = chat_about_article(article, clean_message, history)
 
     return ChatResponse(response=result["response"], provider=result["provider"])

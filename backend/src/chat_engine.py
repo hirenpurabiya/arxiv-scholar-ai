@@ -66,9 +66,9 @@ def _chat_with_groq(
         messages.append({"role": "user", "content": message})
 
         response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model="llama-3.1-8b-instant",
             messages=messages,
-            max_tokens=512,
+            max_tokens=300,
             temperature=0.7,
         )
 
@@ -118,7 +118,7 @@ def _chat_with_gemini(
             config=types.GenerateContentConfig(
                 system_instruction=system_prompt,
                 temperature=0.7,
-                max_output_tokens=512,
+                max_output_tokens=300,
             ),
         )
 
