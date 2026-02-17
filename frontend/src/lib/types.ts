@@ -34,13 +34,18 @@ export interface ChatMessage {
   content: string;
 }
 
+export type AIProvider = "grok" | "gemini" | "claude";
+
 export interface ChatRequest {
   article_id: string;
   message: string;
   history: ChatMessage[];
+  provider: AIProvider;
 }
 
 export interface ChatResponse {
   response: string;
   provider: string;
+  error_type?: string;
+  suggestion?: string;
 }
