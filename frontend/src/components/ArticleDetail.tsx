@@ -32,7 +32,7 @@ export default function ArticleDetail({ article, onBack }: ArticleDetailProps) {
   };
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-6xl mx-auto">
       <button
         onClick={onBack}
         className="mb-6 text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1 transition-colors"
@@ -40,111 +40,121 @@ export default function ArticleDetail({ article, onBack }: ArticleDetailProps) {
         <span>&larr;</span> Back to results
       </button>
 
-      <div className="bg-white rounded-2xl border border-gray-200 p-8 shadow-sm">
-        <div className="flex items-start justify-between gap-4 mb-4">
-          <span className="text-sm font-medium text-blue-600 bg-blue-50 px-3 py-1 rounded-full">
-            {article.id}
-          </span>
-          <span className="text-sm text-gray-400">
-            Published: {article.published}
-          </span>
-        </div>
-
-        <h1 className="text-2xl font-bold text-gray-900 mb-4 leading-tight">
-          {article.title}
-        </h1>
-
-        <div className="flex flex-wrap gap-2 mb-6">
-          {article.authors.map((author, i) => (
-            <span
-              key={i}
-              className="text-sm bg-gray-100 text-gray-600 px-3 py-1 rounded-full"
-            >
-              {author}
-            </span>
-          ))}
-        </div>
-
-        <div className="mb-6">
-          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">
-            Abstract
-          </h2>
-          <p className="text-gray-700 leading-relaxed whitespace-pre-line">
-            {article.summary}
-          </p>
-        </div>
-
-        {/* Quick Summary */}
-        <div className="mb-6">
-          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
-            Quick Summary
-          </h2>
-          {aiSummary ? (
-            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-5 border border-blue-100">
-              <p className="text-gray-800 leading-relaxed">{aiSummary}</p>
+      <div className="flex gap-6">
+        {/* Left side: Article details */}
+        <div className={`${showChat ? "flex-1" : "w-full max-w-4xl mx-auto"} transition-all`}>
+          <div className="bg-white rounded-2xl border border-gray-200 p-8 shadow-sm">
+            <div className="flex items-start justify-between gap-4 mb-4">
+              <span className="text-sm font-medium text-blue-600 bg-blue-50 px-3 py-1 rounded-full">
+                {article.id}
+              </span>
+              <span className="text-sm text-gray-400">
+                Published: {article.published}
+              </span>
             </div>
-          ) : summaryError ? (
-            <div className="bg-red-50 rounded-xl p-5 border border-red-100">
-              <p className="text-red-600 text-sm">{summaryError}</p>
+
+            <h1 className="text-2xl font-bold text-gray-900 mb-4 leading-tight">
+              {article.title}
+            </h1>
+
+            <div className="flex flex-wrap gap-2 mb-6">
+              {article.authors.map((author, i) => (
+                <span
+                  key={i}
+                  className="text-sm bg-gray-100 text-gray-600 px-3 py-1 rounded-full"
+                >
+                  {author}
+                </span>
+              ))}
             </div>
-          ) : (
-            <button
-              onClick={handleSummarize}
-              disabled={isLoadingSummary}
-              className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-medium rounded-xl hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
-            >
-              {isLoadingSummary ? "Generating..." : "Quick Summary"}
-            </button>
-          )}
+
+            <div className="mb-6">
+              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                Abstract
+              </h2>
+              <p className="text-gray-700 leading-relaxed whitespace-pre-line">
+                {article.summary}
+              </p>
+            </div>
+
+            {/* Quick Summary */}
+            <div className="mb-6">
+              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                Quick Summary
+              </h2>
+              {aiSummary ? (
+                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-5 border border-blue-100">
+                  <p className="text-gray-800 leading-relaxed">{aiSummary}</p>
+                </div>
+              ) : summaryError ? (
+                <div className="bg-red-50 rounded-xl p-5 border border-red-100">
+                  <p className="text-red-600 text-sm">{summaryError}</p>
+                </div>
+              ) : (
+                <button
+                  onClick={handleSummarize}
+                  disabled={isLoadingSummary}
+                  className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-medium rounded-xl hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
+                >
+                  {isLoadingSummary ? "Generating..." : "Quick Summary"}
+                </button>
+              )}
+            </div>
+
+            {/* Explain Like I'm 10 - Button to open chat */}
+            {!showChat && (
+              <div className="mb-6">
+                <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                  Explain Like I&apos;m 10
+                </h2>
+                <button
+                  onClick={() => setShowChat(true)}
+                  className="px-5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-medium rounded-xl hover:from-amber-600 hover:to-orange-600 transition-all shadow-sm flex items-center gap-2"
+                >
+                  <span>💬</span>
+                  Explain Like I&apos;m 10 — Chat
+                </button>
+              </div>
+            )}
+
+            <div className="flex gap-3 pt-4 border-t border-gray-100">
+              <a
+                href={article.pdf_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-5 py-2.5 bg-red-600 text-white font-medium rounded-xl hover:bg-red-700 transition-colors shadow-sm"
+              >
+                View PDF
+              </a>
+              <a
+                href={`https://arxiv.org/abs/${article.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-5 py-2.5 bg-gray-100 text-gray-700 font-medium rounded-xl hover:bg-gray-200 transition-colors"
+              >
+                View on arXiv
+              </a>
+            </div>
+          </div>
         </div>
 
-        {/* Explain Like I'm 10 Chatbot */}
-        <div className="mb-6">
-          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
-            Explain Like I&apos;m 10
-          </h2>
-          {showChat ? (
-            <div className="space-y-3">
+        {/* Right side: Chat panel */}
+        {showChat && (
+          <div className="w-96 flex-shrink-0">
+            <div className="sticky top-4">
               <ELI10Chat
                 articleId={article.id}
                 articleTitle={article.title}
               />
               <button
                 onClick={() => setShowChat(false)}
-                className="text-sm text-gray-400 hover:text-gray-600 transition-colors"
+                className="mt-3 w-full text-sm text-gray-400 hover:text-gray-600 transition-colors text-center"
               >
                 Close chat
               </button>
             </div>
-          ) : (
-            <button
-              onClick={() => setShowChat(true)}
-              className="px-5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-medium rounded-xl hover:from-amber-600 hover:to-orange-600 transition-all shadow-sm flex items-center gap-2"
-            >
-              <span>💬</span>
-              Explain Like I&apos;m 10 — Chat
-            </button>
-          )}
-        </div>
-
-        <div className="flex gap-3 pt-4 border-t border-gray-100">
-          <a
-            href={article.pdf_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="px-5 py-2.5 bg-red-600 text-white font-medium rounded-xl hover:bg-red-700 transition-colors shadow-sm"
-          >
-            View PDF
-          </a>
-          <a
-            href={`https://arxiv.org/abs/${article.id}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="px-5 py-2.5 bg-gray-100 text-gray-700 font-medium rounded-xl hover:bg-gray-200 transition-colors"
-          >
-            View on arXiv
-          </a>
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );
