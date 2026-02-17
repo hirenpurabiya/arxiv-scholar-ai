@@ -14,6 +14,12 @@ RESEARCH_DIR = "research_data"
 # Anthropic API key for Claude-powered summarization
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 
+# Groq API key for fast free chat (primary)
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+
+# Google Gemini API key for free chat (fallback)
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+
 # Default number of articles to return per search
 DEFAULT_MAX_RESULTS = 5
 

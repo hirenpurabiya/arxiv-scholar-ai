@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { Article } from "@/lib/types";
-import { summarizeArticle, explainLikeTen } from "@/lib/api";
+import { summarizeArticle } from "@/lib/api";
+import ELI10Chat from "./ELI10Chat";
 
 interface ArticleDetailProps {
   article: Article;
@@ -11,11 +12,9 @@ interface ArticleDetailProps {
 
 export default function ArticleDetail({ article, onBack }: ArticleDetailProps) {
   const [aiSummary, setAiSummary] = useState<string | null>(null);
-  const [eli10, setEli10] = useState<string | null>(null);
   const [isLoadingSummary, setIsLoadingSummary] = useState(false);
-  const [isLoadingEli10, setIsLoadingEli10] = useState(false);
   const [summaryError, setSummaryError] = useState<string | null>(null);
-  const [eli10Error, setEli10Error] = useState<string | null>(null);
+  const [showChat, setShowChat] = useState(false);
 
   const handleSummarize = async () => {
     setIsLoadingSummary(true);
@@ -29,21 +28,6 @@ export default function ArticleDetail({ article, onBack }: ArticleDetailProps) {
       );
     } finally {
       setIsLoadingSummary(false);
-    }
-  };
-
-  const handleEli10 = async () => {
-    setIsLoadingEli10(true);
-    setEli10Error(null);
-    try {
-      const result = await explainLikeTen(article.id);
-      setEli10(result.ai_summary);
-    } catch (err) {
-      setEli10Error(
-        err instanceof Error ? err.message : "Failed to generate explanation"
-      );
-    } finally {
-      setIsLoadingEli10(false);
     }
   };
 
@@ -114,30 +98,31 @@ export default function ArticleDetail({ article, onBack }: ArticleDetailProps) {
           )}
         </div>
 
-        {/* Explain Like I'm 10 */}
+        {/* Explain Like I'm 10 Chatbot */}
         <div className="mb-6">
           <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
             Explain Like I&apos;m 10
           </h2>
-          {eli10 ? (
-            <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl p-5 border border-amber-100">
-              <p className="text-gray-800 leading-relaxed whitespace-pre-line">
-                {eli10}
-              </p>
-            </div>
-          ) : eli10Error ? (
-            <div className="bg-red-50 rounded-xl p-5 border border-red-100">
-              <p className="text-red-600 text-sm">{eli10Error}</p>
+          {showChat ? (
+            <div className="space-y-3">
+              <ELI10Chat
+                articleId={article.id}
+                articleTitle={article.title}
+              />
+              <button
+                onClick={() => setShowChat(false)}
+                className="text-sm text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                Close chat
+              </button>
             </div>
           ) : (
             <button
-              onClick={handleEli10}
-              disabled={isLoadingEli10}
-              className="px-5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-medium rounded-xl hover:from-amber-600 hover:to-orange-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
+              onClick={() => setShowChat(true)}
+              className="px-5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-medium rounded-xl hover:from-amber-600 hover:to-orange-600 transition-all shadow-sm flex items-center gap-2"
             >
-              {isLoadingEli10
-                ? "Simplifying..."
-                : "Explain Like I'm 10"}
+              <span>💬</span>
+              Explain Like I&apos;m 10 — Chat
             </button>
           )}
         </div>
