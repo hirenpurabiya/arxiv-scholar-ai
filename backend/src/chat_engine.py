@@ -1,13 +1,13 @@
 """
 Chat engine for ArXiv Scholar AI.
 Powers the "Explain Like I'm 10" interactive chatbot.
-Uses Groq (primary) and Google Gemini (fallback) for free AI chat.
+Uses xAI Grok (primary) and Google Gemini (fallback) for AI chat.
 """
 
 import logging
 from typing import Dict, Any, List, Optional
 
-from .config import GROQ_API_KEY, GOOGLE_API_KEY
+from .config import XAI_API_KEY, GOOGLE_API_KEY
 
 logger = logging.getLogger(__name__)
 
@@ -43,20 +43,23 @@ def _build_system_prompt(article: Dict[str, Any]) -> str:
     )
 
 
-def _chat_with_groq(
+def _chat_with_grok(
     system_prompt: str,
     message: str,
     history: List[Dict[str, str]],
 ) -> Optional[str]:
-    """Send a chat request to Groq. Returns the response text or None on failure."""
-    if not GROQ_API_KEY:
-        logger.info("Groq API key not configured, skipping")
+    """Send a chat request to xAI Grok. Returns the response text or None on failure."""
+    if not XAI_API_KEY:
+        logger.info("xAI API key not configured, skipping Grok")
         return None
 
     try:
-        from groq import Groq
+        from openai import OpenAI
 
-        client = Groq(api_key=GROQ_API_KEY)
+        client = OpenAI(
+            api_key=XAI_API_KEY,
+            base_url="https://api.x.ai/v1",
+        )
 
         messages = [{"role": "system", "content": system_prompt}]
 
@@ -66,7 +69,7 @@ def _chat_with_groq(
         messages.append({"role": "user", "content": message})
 
         response = client.chat.completions.create(
-            model="llama-3.1-8b-instant",
+            model="grok-3-mini-fast",
             messages=messages,
             max_tokens=300,
             temperature=0.7,
@@ -75,7 +78,7 @@ def _chat_with_groq(
         return response.choices[0].message.content
 
     except Exception as e:
-        logger.error(f"Groq chat failed: {e}")
+        logger.error(f"Grok chat failed: {e}")
         return None
 
 
@@ -86,7 +89,7 @@ def _chat_with_gemini(
 ) -> Optional[str]:
     """Send a chat request to Google Gemini. Returns the response text or None on failure."""
     if not GOOGLE_API_KEY:
-        logger.info("Google API key not configured, skipping")
+        logger.info("Google API key not configured, skipping Gemini")
         return None
 
     try:
@@ -135,7 +138,7 @@ def chat_about_article(
     history: List[Dict[str, str]],
 ) -> Dict[str, str]:
     """
-    Chat about a paper using Groq (primary) with Gemini fallback.
+    Chat about a paper using xAI Grok (primary) with Gemini fallback.
 
     Args:
         article: The paper's metadata dict (title, authors, summary, etc.)
@@ -147,18 +150,18 @@ def chat_about_article(
     """
     system_prompt = _build_system_prompt(article)
 
-    # Try Groq first (fast and free)
-    response = _chat_with_groq(system_prompt, message, history)
+    # Try xAI Grok first
+    response = _chat_with_grok(system_prompt, message, history)
     if response:
-        return {"response": response, "provider": "groq"}
+        return {"response": response, "provider": "grok"}
 
-    # Fall back to Gemini
+    # Fall back to Google Gemini
     response = _chat_with_gemini(system_prompt, message, history)
     if response:
         return {"response": response, "provider": "gemini"}
 
-    # Both failed -- return a helpful error
+    # Both failed
     return {
-        "response": "I can't connect to any AI service right now. Please make sure GROQ_API_KEY or GOOGLE_API_KEY is set in the server environment.",
+        "response": "I can't connect to any AI service right now. Please make sure XAI_API_KEY or GOOGLE_API_KEY is set in the server environment.",
         "provider": "none",
     }
