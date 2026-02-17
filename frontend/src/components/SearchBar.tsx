@@ -1,27 +1,74 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { SearchFilters } from "@/lib/types";
+import SearchFiltersComponent from "./SearchFilters";
 
 interface SearchBarProps {
-  onSearch: (topic: string, maxResults: number) => void;
+  onSearch: (topic: string, maxResults: number, filters: SearchFilters) => void;
   isLoading: boolean;
+  initialTopic?: string;
+  initialFilters?: SearchFilters;
+  onShare: (topic: string, filters: SearchFilters) => void;
 }
 
-export default function SearchBar({ onSearch, isLoading }: SearchBarProps) {
-  const [topic, setTopic] = useState("");
+const DEFAULT_FILTERS: SearchFilters = {
+  sortBy: "relevance",
+  datePreset: "all",
+};
+
+export default function SearchBar({
+  onSearch,
+  isLoading,
+  initialTopic = "",
+  initialFilters = DEFAULT_FILTERS,
+  onShare,
+}: SearchBarProps) {
+  const [topic, setTopic] = useState(initialTopic);
   const [maxResults, setMaxResults] = useState(5);
+  const [filters, setFilters] = useState<SearchFilters>(initialFilters);
+  const [hasSearched, setHasSearched] = useState(false);
+
+  // Update topic if initial value changes (from URL params)
+  useEffect(() => {
+    if (initialTopic) {
+      setTopic(initialTopic);
+    }
+  }, [initialTopic]);
+
+  // Update filters if initial values change (from URL params)
+  useEffect(() => {
+    if (initialFilters) {
+      setFilters(initialFilters);
+    }
+  }, [initialFilters]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (topic.trim()) {
-      onSearch(topic.trim(), maxResults);
+      setHasSearched(true);
+      onSearch(topic.trim(), maxResults, filters);
+    }
+  };
+
+  const handleFiltersChange = (newFilters: SearchFilters) => {
+    setFilters(newFilters);
+    // Auto-search when filters change (only if we've already searched)
+    if (hasSearched && topic.trim()) {
+      onSearch(topic.trim(), maxResults, newFilters);
+    }
+  };
+
+  const handleShare = () => {
+    if (topic.trim()) {
+      onShare(topic.trim(), filters);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="w-full max-w-3xl mx-auto">
-      <div className="flex flex-col gap-4">
-        <div className="flex gap-3">
+    <div className="w-full max-w-4xl mx-auto space-y-4">
+      <form onSubmit={handleSubmit}>
+        <div className="flex flex-col sm:flex-row gap-3">
           <input
             type="text"
             value={topic}
@@ -50,7 +97,14 @@ export default function SearchBar({ onSearch, isLoading }: SearchBarProps) {
             {isLoading ? "Searching..." : "Search"}
           </button>
         </div>
-      </div>
-    </form>
+      </form>
+
+      {/* Filters - always visible */}
+      <SearchFiltersComponent
+        filters={filters}
+        onFiltersChange={handleFiltersChange}
+        onShare={handleShare}
+      />
+    </div>
   );
 }

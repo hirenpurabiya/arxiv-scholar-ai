@@ -46,3 +46,14 @@ export interface ChatResponse {
   error_type?: string;
   suggestion?: string;
 }
+
+// Search filter types
+export type SortOption = "relevance" | "date" | "updated";
+export type DatePreset = "all" | "week" | "month" | "year" | "custom";
+
+export interface SearchFilters {
+  sortBy: SortOption;
+  datePreset: DatePreset;
+  dateFrom?: string;  // YYYYMMDD format
+  dateTo?: string;    // YYYYMMDD format
+}

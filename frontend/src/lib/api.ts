@@ -2,21 +2,34 @@
  * API client functions for communicating with the ArXiv Scholar AI backend.
  */
 
-import { SearchResponse, Article, SummaryResponse, TopicsResponse, ChatMessage, ChatResponse } from "./types";
+import { SearchResponse, Article, SummaryResponse, TopicsResponse, ChatMessage, ChatResponse, SearchFilters } from "./types";
 
 const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000").replace(/\/+$/, "");
 
 /**
  * Search for articles on arXiv by topic.
+ * Supports sorting and date filtering.
  */
 export async function searchArticles(
   topic: string,
-  maxResults: number = 5
+  maxResults: number = 5,
+  filters?: SearchFilters
 ): Promise<SearchResponse> {
   const params = new URLSearchParams({
     topic,
     max_results: String(maxResults),
   });
+
+  // Add filter params if provided
+  if (filters) {
+    params.set("sort_by", filters.sortBy);
+    if (filters.dateFrom) {
+      params.set("date_from", filters.dateFrom);
+    }
+    if (filters.dateTo) {
+      params.set("date_to", filters.dateTo);
+    }
+  }
 
   const response = await fetch(`${API_BASE}/api/search?${params}`);
 
