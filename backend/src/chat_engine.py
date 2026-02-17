@@ -104,20 +104,21 @@ def _chat_with_gemini(
 
         client = genai.Client(api_key=GOOGLE_API_KEY)
 
+        # Build contents list with proper Part format
         contents = []
         for msg in history:
             role = "model" if msg["role"] == "assistant" else "user"
             contents.append(
                 types.Content(
                     role=role,
-                    parts=[types.Part.from_text(msg["content"])],
+                    parts=[types.Part(text=msg["content"])],
                 )
             )
 
         contents.append(
             types.Content(
                 role="user",
-                parts=[types.Part.from_text(message)],
+                parts=[types.Part(text=message)],
             )
         )
 
