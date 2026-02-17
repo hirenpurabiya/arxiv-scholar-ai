@@ -53,30 +53,27 @@ def _chat_with_gemini(
         return {"success": False, "error_type": "not_configured", "error": "Google Gemini API key not configured."}
 
     try:
-        import google.generativeai as genai
+        from google import genai
 
-        # Configure the API key
-        genai.configure(api_key=GOOGLE_API_KEY)
+        # Create client with API key
+        client = genai.Client(api_key=GOOGLE_API_KEY)
 
-        # Create the model with system instruction
-        model = genai.GenerativeModel(
-            model_name="gemini-1.5-flash",
-            system_instruction=system_prompt,
-            generation_config=genai.GenerationConfig(
-                temperature=0.7,
-                max_output_tokens=300,
-            ),
-        )
-
-        # Format history for chat
-        formatted_history = []
+        # Build the full prompt with system instruction and history
+        full_prompt = system_prompt + "\n\n"
+        
+        # Add conversation history
         for msg in history:
-            role = "model" if msg["role"] == "assistant" else "user"
-            formatted_history.append({"role": role, "parts": [msg["content"]]})
+            role_label = "User" if msg["role"] == "user" else "Assistant"
+            full_prompt += f"{role_label}: {msg['content']}\n\n"
+        
+        # Add current message
+        full_prompt += f"User: {message}\n\nAssistant:"
 
-        # Start chat with history and send message
-        chat = model.start_chat(history=formatted_history)
-        response = chat.send_message(message)
+        # Generate response using the simple API
+        response = client.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=full_prompt,
+        )
 
         return {"success": True, "response": response.text}
 
