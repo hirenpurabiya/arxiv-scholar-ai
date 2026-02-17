@@ -23,7 +23,6 @@ const SUGGESTED_QUESTIONS = [
 ];
 
 const PROVIDERS: { id: AIProvider; name: string }[] = [
-  { id: "grok", name: "xAI Grok" },
   { id: "gemini", name: "Google Gemini" },
   { id: "claude", name: "Anthropic Claude" },
 ];
@@ -34,7 +33,7 @@ export default function ELI10Chat({ articleId, articleTitle }: ELI10ChatProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [suggestion, setSuggestion] = useState<AIProvider | null>(null);
-  const [provider, setProvider] = useState<AIProvider>("grok");
+  const [provider, setProvider] = useState<AIProvider>("gemini");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -73,10 +72,8 @@ export default function ELI10Chat({ articleId, articleTitle }: ELI10ChatProps) {
       if (result.error_type) {
         setError(result.response);
         // Suggest a different provider
-        if (provider === "grok") {
-          setSuggestion("gemini");
-        } else if (provider === "gemini") {
-          setSuggestion("grok");
+        if (provider === "gemini") {
+          setSuggestion("claude");
         } else {
           setSuggestion("gemini");
         }

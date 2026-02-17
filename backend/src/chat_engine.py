@@ -1,18 +1,18 @@
 """
 Chat engine for ArXiv Scholar AI.
 Powers the "Explain Like I'm 10" interactive chatbot.
-Supports xAI Grok, Google Gemini, and Anthropic Claude.
+Supports Google Gemini (free) and Anthropic Claude.
 """
 
 import logging
-from typing import Dict, Any, List, Optional, Literal
+from typing import Dict, Any, List, Literal
 
-from .config import XAI_API_KEY, GOOGLE_API_KEY, ANTHROPIC_API_KEY, CLAUDE_MODEL
+from .config import GOOGLE_API_KEY, ANTHROPIC_API_KEY, CLAUDE_MODEL
 
 logger = logging.getLogger(__name__)
 
 # Type for AI providers
-AIProvider = Literal["grok", "gemini", "claude"]
+AIProvider = Literal["gemini", "claude"]
 
 SYSTEM_PROMPT = """You are a friendly teacher who explains research papers to a 10-year-old kid.
 
@@ -44,49 +44,6 @@ def _build_system_prompt(article: Dict[str, Any]) -> str:
         published=article.get("published", "Unknown date"),
         abstract=article.get("summary", "No abstract available."),
     )
-
-
-def _chat_with_grok(
-    system_prompt: str,
-    message: str,
-    history: List[Dict[str, str]],
-) -> Dict[str, Any]:
-    """Send a chat request to xAI Grok."""
-    if not XAI_API_KEY:
-        return {"success": False, "error_type": "not_configured", "error": "xAI Grok API key not configured."}
-
-    try:
-        from openai import OpenAI
-
-        client = OpenAI(
-            api_key=XAI_API_KEY,
-            base_url="https://api.x.ai/v1",
-        )
-
-        messages = [{"role": "system", "content": system_prompt}]
-        for msg in history:
-            messages.append({"role": msg["role"], "content": msg["content"]})
-        messages.append({"role": "user", "content": message})
-
-        response = client.chat.completions.create(
-            model="grok-3-mini",
-            messages=messages,
-            max_tokens=300,
-            temperature=0.7,
-        )
-
-        return {"success": True, "response": response.choices[0].message.content}
-
-    except Exception as e:
-        error_str = str(e).lower()
-        logger.error(f"Grok chat failed: {e}")
-        
-        if "rate" in error_str or "429" in error_str:
-            return {"success": False, "error_type": "rate_limited", "error": str(e)}
-        elif "credit" in error_str or "balance" in error_str or "402" in error_str or "payment" in error_str:
-            return {"success": False, "error_type": "credits_exhausted", "error": str(e)}
-        else:
-            return {"success": False, "error_type": "unknown", "error": str(e)}
 
 
 def _chat_with_gemini(
@@ -188,30 +145,23 @@ def _chat_with_claude(
 
 # Mapping of provider names to their chat functions
 PROVIDER_FUNCTIONS = {
-    "grok": _chat_with_grok,
     "gemini": _chat_with_gemini,
     "claude": _chat_with_claude,
 }
 
 # Friendly suggestions when a provider fails (no credit/pricing info shown to users)
 PROVIDER_SUGGESTIONS = {
-    "grok": {
-        "credits_exhausted": "Grok is temporarily unavailable. Try Gemini or Claude instead!",
-        "rate_limited": "Grok is busy right now. Wait a moment or try Gemini.",
-        "not_configured": "Grok is not available. Try Gemini or Claude instead.",
-        "unknown": "Grok had an error. Try Gemini or Claude instead.",
-    },
     "gemini": {
-        "credits_exhausted": "Gemini is temporarily unavailable. Try Grok or Claude instead!",
-        "rate_limited": "Gemini is busy right now. Wait a moment or try Grok.",
-        "not_configured": "Gemini is not available. Try Grok or Claude instead.",
-        "unknown": "Gemini had an error. Try Grok or Claude instead.",
+        "credits_exhausted": "Gemini is temporarily unavailable. Try Claude instead!",
+        "rate_limited": "Gemini is busy right now. Wait a moment or try Claude.",
+        "not_configured": "Gemini is not available. Try Claude instead.",
+        "unknown": "Gemini had an error. Try Claude instead.",
     },
     "claude": {
-        "credits_exhausted": "Claude is temporarily unavailable. Try Gemini or Grok instead!",
+        "credits_exhausted": "Claude is temporarily unavailable. Try Gemini instead!",
         "rate_limited": "Claude is busy right now. Wait a moment or try Gemini.",
-        "not_configured": "Claude is not available. Try Gemini or Grok instead.",
-        "unknown": "Claude had an error. Try Gemini or Grok instead.",
+        "not_configured": "Claude is not available. Try Gemini instead.",
+        "unknown": "Claude had an error. Try Gemini instead.",
     },
 }
 
@@ -220,7 +170,7 @@ def chat_about_article(
     article: Dict[str, Any],
     message: str,
     history: List[Dict[str, str]],
-    provider: AIProvider = "grok",
+    provider: str = "gemini",
 ) -> Dict[str, Any]:
     """
     Chat about a paper using the specified AI provider.
@@ -229,7 +179,7 @@ def chat_about_article(
         article: The paper's metadata dict (title, authors, summary, etc.)
         message: The user's current message
         history: List of previous messages, each with "role" and "content"
-        provider: Which AI to use ("grok", "gemini", or "claude")
+        provider: Which AI to use ("gemini" or "claude")
 
     Returns:
         Dict with:
@@ -244,10 +194,10 @@ def chat_about_article(
     chat_fn = PROVIDER_FUNCTIONS.get(provider)
     if not chat_fn:
         return {
-            "response": f"Unknown provider: {provider}. Use 'grok', 'gemini', or 'claude'.",
+            "response": f"Unknown provider: {provider}. Use 'gemini' or 'claude'.",
             "provider": "none",
             "error_type": "unknown",
-            "suggestion": "Try selecting Grok, Gemini, or Claude.",
+            "suggestion": "Try selecting Gemini or Claude.",
         }
 
     # Try the requested provider
