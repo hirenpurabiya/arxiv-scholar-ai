@@ -96,7 +96,7 @@ export default function ELI10Chat({ articleId, articleTitle }: ELI10ChatProps) {
   return (
     <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
       {/* Header */}
-      <div className="bg-gray-800 px-5 py-3">
+      <div className="bg-slate-700 px-5 py-3">
         <div className="flex items-center gap-3">
           <span className="text-2xl">💬</span>
           <div>
@@ -121,7 +121,7 @@ export default function ELI10Chat({ articleId, articleTitle }: ELI10ChatProps) {
             <div
               className={`max-w-[80%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${
                 msg.role === "user"
-                  ? "bg-gray-800 text-white rounded-br-md"
+                  ? "bg-blue-600 text-white rounded-br-md"
                   : "bg-gray-50 text-gray-800 border border-gray-200 rounded-bl-md shadow-sm"
               }`}
             >
@@ -184,12 +184,12 @@ export default function ELI10Chat({ articleId, articleTitle }: ELI10ChatProps) {
           onChange={(e) => setInput(e.target.value)}
           placeholder="Ask me anything about this paper..."
           disabled={isLoading}
-          className="flex-1 px-4 py-2.5 bg-white border border-gray-300 rounded-xl text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent disabled:opacity-50 placeholder-gray-400"
+          className="flex-1 px-4 py-2.5 bg-white border border-gray-300 rounded-xl text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 placeholder-gray-400"
         />
         <button
           type="submit"
           disabled={isLoading || !input.trim()}
-          className="px-4 py-2.5 bg-gray-800 text-white font-medium rounded-xl hover:bg-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm"
+          className="px-4 py-2.5 bg-blue-600 text-white font-medium rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm"
         >
           Send
         </button>

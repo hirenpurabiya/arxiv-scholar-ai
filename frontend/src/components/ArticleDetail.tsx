@@ -94,7 +94,7 @@ export default function ArticleDetail({ article, onBack }: ArticleDetailProps) {
                 <button
                   onClick={handleSummarize}
                   disabled={isLoadingSummary}
-                  className="px-5 py-2.5 bg-gray-800 text-white font-medium rounded-xl hover:bg-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+                  className="px-5 py-2.5 bg-slate-700 text-white font-medium rounded-xl hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
                 >
                   {isLoadingSummary ? "Generating..." : "Quick Summary"}
                 </button>
@@ -109,10 +109,9 @@ export default function ArticleDetail({ article, onBack }: ArticleDetailProps) {
                 </h2>
                 <button
                   onClick={() => setShowChat(true)}
-                  className="px-5 py-2.5 bg-gray-800 text-white font-medium rounded-xl hover:bg-gray-900 transition-colors shadow-sm flex items-center gap-2"
+                  className="px-5 py-2.5 bg-slate-700 text-white font-medium rounded-xl hover:bg-slate-800 transition-colors shadow-sm"
                 >
-                  <span>💬</span>
-                  Explain Like I&apos;m 10 — Chat
+                  Explain Like I&apos;m 10
                 </button>
               </div>
             )}
