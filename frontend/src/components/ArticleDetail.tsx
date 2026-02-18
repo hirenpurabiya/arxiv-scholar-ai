@@ -32,7 +32,7 @@ export default function ArticleDetail({ article, onBack }: ArticleDetailProps) {
   };
 
   return (
-    <div className="max-w-6xl mx-auto">
+    <div className="w-full">
       <button
         onClick={onBack}
         className="mb-6 text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1 transition-colors"
@@ -42,7 +42,7 @@ export default function ArticleDetail({ article, onBack }: ArticleDetailProps) {
 
       <div className="flex gap-6">
         {/* Left side: Article details */}
-        <div className={`${showChat ? "flex-1" : "w-full max-w-4xl mx-auto"} transition-all`}>
+        <div className={`${showChat ? "flex-1" : "w-full"} transition-all`}>
           <div className="bg-white rounded-2xl border border-gray-200 p-8 shadow-sm">
             <div className="flex items-start justify-between gap-4 mb-4">
               <span className="text-sm font-medium text-blue-600 bg-blue-50 px-3 py-1 rounded-full">
@@ -94,7 +94,7 @@ export default function ArticleDetail({ article, onBack }: ArticleDetailProps) {
                 <button
                   onClick={handleSummarize}
                   disabled={isLoadingSummary}
-                  className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-medium rounded-xl hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
+                  className="px-5 py-2.5 bg-gray-800 text-white font-medium rounded-xl hover:bg-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
                 >
                   {isLoadingSummary ? "Generating..." : "Quick Summary"}
                 </button>
@@ -109,7 +109,7 @@ export default function ArticleDetail({ article, onBack }: ArticleDetailProps) {
                 </h2>
                 <button
                   onClick={() => setShowChat(true)}
-                  className="px-5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-medium rounded-xl hover:from-amber-600 hover:to-orange-600 transition-all shadow-sm flex items-center gap-2"
+                  className="px-5 py-2.5 bg-gray-800 text-white font-medium rounded-xl hover:bg-gray-900 transition-colors shadow-sm flex items-center gap-2"
                 >
                   <span>💬</span>
                   Explain Like I&apos;m 10 — Chat
@@ -122,7 +122,7 @@ export default function ArticleDetail({ article, onBack }: ArticleDetailProps) {
                 href={article.pdf_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="px-5 py-2.5 bg-red-600 text-white font-medium rounded-xl hover:bg-red-700 transition-colors shadow-sm"
+                className="px-5 py-2.5 bg-gray-100 text-gray-700 font-medium rounded-xl hover:bg-gray-200 transition-colors"
               >
                 View PDF
               </a>

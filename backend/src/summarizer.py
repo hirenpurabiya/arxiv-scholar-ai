@@ -1,18 +1,20 @@
 """
 Summarizer module for ArXiv Scholar AI.
-Provides free local summarization and optional Claude-powered summaries.
+Provides Gemini-powered summaries with free local fallback.
 """
 
 import re
 import logging
 from typing import Dict, Any, Optional
 
-from .config import ANTHROPIC_API_KEY, CLAUDE_MODEL, MAX_TOKENS
+import requests
+
+from .config import ANTHROPIC_API_KEY, CLAUDE_MODEL, MAX_TOKENS, GOOGLE_API_KEY
 
 logger = logging.getLogger(__name__)
 
 
-def _extract_key_sentences(abstract: str, max_sentences: int = 3) -> str:
+def _extract_key_sentences(abstract: str, max_sentences: int = 5) -> str:
     """
     Extract the most important sentences from an abstract.
     Prioritizes first sentence, sentences with key phrases, and conclusion.
@@ -95,14 +97,51 @@ def _simplify_for_kids(abstract: str) -> str:
     return "\n\n".join(parts)
 
 
+def _summarize_with_gemini(article_data: Dict[str, Any]) -> Optional[str]:
+    """Generate a summary using Google Gemini (free tier)."""
+    if not GOOGLE_API_KEY:
+        return None
+
+    title = article_data.get("title", "Unknown Title")
+    abstract = article_data.get("summary", "")
+
+    prompt = f"""Summarize this research paper in 5-8 sentences that a smart non-expert can understand.
+Focus on: what problem it solves, the approach/method, key results, and why it matters.
+Keep it simple and clear. No jargon.
+
+Title: {title}
+
+Abstract:
+{abstract}
+
+Summary:"""
+
+    url = f"https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash:generateContent?key={GOOGLE_API_KEY}"
+    payload = {"contents": [{"parts": [{"text": prompt}]}]}
+
+    try:
+        resp = requests.post(url, json=payload, timeout=15)
+        if resp.status_code == 200:
+            data = resp.json()
+            return data["candidates"][0]["content"]["parts"][0]["text"]
+        logger.warning(f"Gemini summary failed: {resp.status_code}")
+    except Exception as e:
+        logger.warning(f"Gemini summary error: {e}")
+
+    return None
+
+
 def summarize_article(article_data: Dict[str, Any]) -> Optional[str]:
     """
-    Generate a concise summary by extracting key sentences from the abstract.
-    Free, no API key needed.
+    Generate a summary using Gemini (free), with local extraction as fallback.
     """
     abstract = article_data.get("summary", "")
     if not abstract:
         return "No abstract available for this article."
+
+    gemini_summary = _summarize_with_gemini(article_data)
+    if gemini_summary:
+        return gemini_summary
 
     return _extract_key_sentences(abstract)
 
