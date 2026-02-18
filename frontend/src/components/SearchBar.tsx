@@ -77,7 +77,7 @@ export default function SearchBar({
           >
             {[3, 5, 10, 15, 20].map((n) => (
               <option key={n} value={n}>
-                {n} results
+                Show {n}
               </option>
             ))}
           </select>
