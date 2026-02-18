@@ -103,7 +103,11 @@ export async function chatWithArticle(
   });
 
   if (!response.ok) {
-    throw new Error(`Chat failed: ${response.statusText}`);
+    if (response.status === 429) {
+      throw new Error("You're sending messages too fast! Please wait about 60 seconds and try again.");
+    }
+    const errorData = await response.json().catch(() => null);
+    throw new Error(errorData?.detail || `Something went wrong. Please try again.`);
   }
 
   return response.json();
