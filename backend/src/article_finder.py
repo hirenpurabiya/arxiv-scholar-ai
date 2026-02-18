@@ -7,19 +7,49 @@ import arxiv
 import json
 import os
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, date
 from typing import List, Dict, Any, Optional
 
 from .config import RESEARCH_DIR, DEFAULT_MAX_RESULTS
 
 logger = logging.getLogger(__name__)
 
-# Map sort options to arxiv SortCriterion
 SORT_CRITERIA = {
     "relevance": arxiv.SortCriterion.Relevance,
     "date": arxiv.SortCriterion.SubmittedDate,
     "updated": arxiv.SortCriterion.LastUpdatedDate,
 }
+
+FETCH_MULTIPLIER = 5
+
+
+def _parse_date(yyyymmdd: str) -> date:
+    """Parse YYYYMMDD string into a date object."""
+    return datetime.strptime(yyyymmdd, "%Y%m%d").date()
+
+
+def _filter_by_date(
+    articles: List[Dict[str, Any]],
+    date_from: Optional[str],
+    date_to: Optional[str],
+) -> List[Dict[str, Any]]:
+    """Filter articles whose published date falls within the range."""
+    if not date_from and not date_to:
+        return articles
+
+    from_date = _parse_date(date_from) if date_from else date.min
+    to_date = _parse_date(date_to) if date_to else date.max
+
+    filtered = []
+    for article in articles:
+        try:
+            pub = date.fromisoformat(article["published"])
+            if from_date <= pub <= to_date:
+                filtered.append(article)
+        except (ValueError, KeyError):
+            pass
+
+    return filtered
 
 
 def find_articles(
@@ -32,44 +62,41 @@ def find_articles(
     """
     Search arXiv for articles matching a topic and store their metadata.
 
+    When date filters are provided, fetches extra results from arXiv and
+    filters locally by published date. ArXiv's submittedDate query filter
+    is unreliable, so we enforce it ourselves.
+
     Args:
-        topic: The search query (e.g., "transformer architecture", "reinforcement learning")
-        max_results: Maximum number of articles to retrieve
-        sort_by: How to sort results - "relevance", "date", or "updated"
-        date_from: Start date filter in YYYYMMDD format (optional)
-        date_to: End date filter in YYYYMMDD format (optional)
+        topic: The search query
+        max_results: Maximum number of articles to return
+        sort_by: Sort order - "relevance", "date", or "updated"
+        date_from: Start date in YYYYMMDD format (inclusive)
+        date_to: End date in YYYYMMDD format (inclusive)
 
     Returns:
-        List of article metadata dictionaries
+        List of article metadata dicts, at most max_results items
     """
     client = arxiv.Client()
 
-    # Build query with optional date range
-    query = topic
-    if date_from or date_to:
-        start = date_from or "19910101"  # arXiv started in 1991
-        end = date_to or datetime.now().strftime("%Y%m%d")
-        query = f"{topic} AND submittedDate:[{start} TO {end}]"
+    has_date_filter = bool(date_from or date_to)
+    fetch_count = max_results * FETCH_MULTIPLIER if has_date_filter else max_results
 
-    # Get sort criterion (default to relevance if invalid)
     sort_criterion = SORT_CRITERIA.get(sort_by, arxiv.SortCriterion.Relevance)
 
     search = arxiv.Search(
-        query=query,
-        max_results=max_results,
+        query=topic,
+        max_results=fetch_count,
         sort_by=sort_criterion,
     )
 
     results = client.results(search)
 
-    # Build the storage path for this topic
     topic_slug = topic.lower().strip().replace(" ", "_")
     topic_dir = os.path.join(RESEARCH_DIR, topic_slug)
     os.makedirs(topic_dir, exist_ok=True)
 
     metadata_path = os.path.join(topic_dir, "articles.json")
 
-    # Load existing metadata if available
     existing_data = {}
     try:
         with open(metadata_path, "r") as f:
@@ -77,8 +104,7 @@ def find_articles(
     except (FileNotFoundError, json.JSONDecodeError):
         existing_data = {}
 
-    # Process each result from arXiv
-    articles = []
+    all_articles = []
     for result in results:
         article_id = result.get_short_id()
 
@@ -93,12 +119,21 @@ def find_articles(
         }
 
         existing_data[article_id] = article_metadata
-        articles.append(article_metadata)
+        all_articles.append(article_metadata)
 
-    # Save updated metadata
     with open(metadata_path, "w") as f:
         json.dump(existing_data, f, indent=2)
 
-    logger.info(f"Found {len(articles)} articles for topic '{topic}', saved to {metadata_path}")
+    if has_date_filter:
+        articles = _filter_by_date(all_articles, date_from, date_to)
+    else:
+        articles = all_articles
+
+    articles = articles[:max_results]
+
+    logger.info(
+        f"Found {len(all_articles)} from arXiv, {len(articles)} after date filter "
+        f"for topic '{topic}' (date_from={date_from}, date_to={date_to})"
+    )
 
     return articles
