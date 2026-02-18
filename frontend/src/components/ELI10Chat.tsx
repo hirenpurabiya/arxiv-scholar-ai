@@ -184,7 +184,7 @@ export default function ELI10Chat({ articleId, articleTitle }: ELI10ChatProps) {
           onChange={(e) => setInput(e.target.value)}
           placeholder="Ask me anything about this paper..."
           disabled={isLoading}
-          className="flex-1 px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent disabled:opacity-50 placeholder-gray-400"
+          className="flex-1 px-4 py-2.5 bg-white border border-gray-300 rounded-xl text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent disabled:opacity-50 placeholder-gray-400"
         />
         <button
           type="submit"
