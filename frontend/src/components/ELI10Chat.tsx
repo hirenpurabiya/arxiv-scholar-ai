@@ -65,7 +65,11 @@ export default function ELI10Chat({ articleId, articleTitle }: ELI10ChatProps) {
       // Check if there was an error
       if (result.error_type) {
         setError(result.response);
-        setSuggestion("Please wait a moment and try again.");
+        setSuggestion(
+          result.error_type === "rate_limited"
+            ? "The AI is processing too many requests. Please wait about 60 seconds and try again."
+            : "Please try again in a moment."
+        );
       } else {
         setMessages((prev) => [
           ...prev,
