@@ -22,7 +22,6 @@ function HomeContent() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchedTopic, setSearchedTopic] = useState<string>("");
-  const [copiedLink, setCopiedLink] = useState(false);
 
   // Parse filters from URL on mount
   const getFiltersFromUrl = useCallback((): SearchFilters => {
@@ -94,27 +93,6 @@ function HomeContent() {
     router.replace(`?${params.toString()}`, { scroll: false });
   };
 
-  const handleShare = (topic: string, filters: SearchFilters) => {
-    const params = new URLSearchParams();
-    params.set("q", topic);
-
-    if (filters.sortBy !== "relevance") {
-      params.set("sort", filters.sortBy);
-    }
-
-    if (filters.datePreset === "custom") {
-      if (filters.dateFrom) params.set("from", filters.dateFrom);
-      if (filters.dateTo) params.set("to", filters.dateTo);
-    } else if (filters.datePreset !== "all") {
-      params.set("date", filters.datePreset);
-    }
-
-    const shareUrl = `${window.location.origin}?${params.toString()}`;
-    navigator.clipboard.writeText(shareUrl);
-    setCopiedLink(true);
-    setTimeout(() => setCopiedLink(false), 2000);
-  };
-
   const handleSelectArticle = (article: Article) => {
     setSelectedArticle(article);
   };
@@ -127,7 +105,7 @@ function HomeContent() {
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
       {/* Header */}
       <header className="border-b border-gray-100 bg-white/80 backdrop-blur-sm sticky top-0 z-10">
-        <div className="max-w-6xl mx-auto px-6 py-4">
+        <div className="w-full mx-auto px-6 lg:px-12 xl:px-20 py-4">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center">
               <span className="text-white font-bold text-sm">AS</span>
@@ -144,15 +122,8 @@ function HomeContent() {
         </div>
       </header>
 
-      {/* Copied Link Toast */}
-      {copiedLink && (
-        <div className="fixed top-20 left-1/2 -translate-x-1/2 bg-gray-900 text-white px-4 py-2 rounded-lg shadow-lg z-50 animate-fade-in">
-          Link copied to clipboard!
-        </div>
-      )}
-
       {/* Main Content */}
-      <main className="max-w-6xl mx-auto px-6 py-10">
+      <main className="w-full mx-auto px-6 lg:px-12 xl:px-20 py-10">
         {/* Hero / Search Section */}
         {!selectedArticle && (
           <div className="text-center mb-10">
@@ -172,14 +143,13 @@ function HomeContent() {
               isLoading={isLoading}
               initialTopic={initialTopic}
               initialFilters={initialFilters}
-              onShare={handleShare}
             />
           </div>
         )}
 
         {/* Error State */}
         {error && (
-          <div className="max-w-3xl mx-auto mt-6">
+          <div className="w-full max-w-4xl mx-auto mt-6">
             <div className="bg-red-50 border border-red-200 rounded-xl p-4">
               <p className="text-red-600 text-sm">{error}</p>
             </div>
@@ -193,6 +163,9 @@ function HomeContent() {
             <p className="mt-4 text-gray-500">
               Searching arXiv for &quot;{searchedTopic}&quot;...
             </p>
+            <p className="mt-2 text-xs text-gray-400">
+              First search may take up to a minute while the server wakes up.
+            </p>
           </div>
         )}
 
@@ -203,7 +176,7 @@ function HomeContent() {
 
         {/* Results List */}
         {!selectedArticle && !isLoading && articles.length > 0 && (
-          <div className="max-w-3xl mx-auto">
+          <div className="w-full">
             <p className="text-sm text-gray-500 mb-4">
               Found {articles.length} articles for &quot;{searchedTopic}&quot;
             </p>
@@ -222,9 +195,9 @@ function HomeContent() {
 
       {/* Footer */}
       <footer className="border-t border-gray-100 mt-20">
-        <div className="max-w-6xl mx-auto px-6 py-6 text-center">
+        <div className="w-full mx-auto px-6 lg:px-12 xl:px-20 py-6 text-center">
           <p className="text-sm text-gray-400">
-            ArXiv Scholar AI &mdash; Built with Next.js, FastAPI, and Claude
+            ArXiv Scholar AI
           </p>
         </div>
       </footer>

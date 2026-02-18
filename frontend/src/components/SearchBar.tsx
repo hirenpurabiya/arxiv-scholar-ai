@@ -9,7 +9,6 @@ interface SearchBarProps {
   isLoading: boolean;
   initialTopic?: string;
   initialFilters?: SearchFilters;
-  onShare: (topic: string, filters: SearchFilters) => void;
 }
 
 const DEFAULT_FILTERS: SearchFilters = {
@@ -22,7 +21,6 @@ export default function SearchBar({
   isLoading,
   initialTopic = "",
   initialFilters = DEFAULT_FILTERS,
-  onShare,
 }: SearchBarProps) {
   const [topic, setTopic] = useState(initialTopic);
   const [maxResults, setMaxResults] = useState(5);
@@ -59,14 +57,8 @@ export default function SearchBar({
     }
   };
 
-  const handleShare = () => {
-    if (topic.trim()) {
-      onShare(topic.trim(), filters);
-    }
-  };
-
   return (
-    <div className="w-full max-w-4xl mx-auto space-y-4">
+    <div className="w-full space-y-4">
       <form onSubmit={handleSubmit}>
         <div className="flex flex-col sm:flex-row gap-3">
           <input
@@ -103,7 +95,6 @@ export default function SearchBar({
       <SearchFiltersComponent
         filters={filters}
         onFiltersChange={handleFiltersChange}
-        onShare={handleShare}
       />
     </div>
   );

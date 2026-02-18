@@ -94,16 +94,16 @@ export default function ELI10Chat({ articleId, articleTitle }: ELI10ChatProps) {
   const showSuggestions = messages.length === 1;
 
   return (
-    <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-2xl border border-amber-200 overflow-hidden shadow-sm">
+    <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
       {/* Header */}
-      <div className="bg-gradient-to-r from-amber-500 to-orange-500 px-5 py-3">
+      <div className="bg-gray-800 px-5 py-3">
         <div className="flex items-center gap-3">
           <span className="text-2xl">💬</span>
           <div>
             <h3 className="text-white font-semibold text-sm">
               Explain Like I&apos;m 10
             </h3>
-            <p className="text-amber-100 text-xs truncate max-w-[250px]">
+            <p className="text-gray-300 text-xs truncate max-w-[250px]">
               {articleTitle}
             </p>
           </div>
@@ -121,8 +121,8 @@ export default function ELI10Chat({ articleId, articleTitle }: ELI10ChatProps) {
             <div
               className={`max-w-[80%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${
                 msg.role === "user"
-                  ? "bg-amber-500 text-white rounded-br-md"
-                  : "bg-white text-gray-800 border border-amber-100 rounded-bl-md shadow-sm"
+                  ? "bg-gray-800 text-white rounded-br-md"
+                  : "bg-gray-50 text-gray-800 border border-gray-200 rounded-bl-md shadow-sm"
               }`}
             >
               {msg.content}
@@ -137,7 +137,7 @@ export default function ELI10Chat({ articleId, articleTitle }: ELI10ChatProps) {
               <button
                 key={i}
                 onClick={() => handleSuggestion(q)}
-                className="text-xs bg-white text-amber-700 border border-amber-200 px-3 py-1.5 rounded-full hover:bg-amber-100 transition-colors"
+                className="text-xs bg-white text-gray-700 border border-gray-200 px-3 py-1.5 rounded-full hover:bg-gray-100 transition-colors"
               >
                 {q}
               </button>
@@ -148,7 +148,7 @@ export default function ELI10Chat({ articleId, articleTitle }: ELI10ChatProps) {
         {/* Loading indicator */}
         {isLoading && (
           <div className="flex justify-start">
-            <div className="bg-white text-gray-500 border border-amber-100 px-4 py-2.5 rounded-2xl rounded-bl-md shadow-sm text-sm">
+            <div className="bg-gray-50 text-gray-500 border border-gray-200 px-4 py-2.5 rounded-2xl rounded-bl-md shadow-sm text-sm">
               <span className="inline-flex gap-1">
                 <span className="animate-bounce" style={{ animationDelay: "0ms" }}>.</span>
                 <span className="animate-bounce" style={{ animationDelay: "150ms" }}>.</span>
@@ -175,7 +175,7 @@ export default function ELI10Chat({ articleId, articleTitle }: ELI10ChatProps) {
       {/* Input */}
       <form
         onSubmit={handleSubmit}
-        className="border-t border-amber-200 bg-white p-3 flex gap-2"
+        className="border-t border-gray-200 bg-white p-3 flex gap-2"
       >
         <input
           ref={inputRef}
@@ -184,12 +184,12 @@ export default function ELI10Chat({ articleId, articleTitle }: ELI10ChatProps) {
           onChange={(e) => setInput(e.target.value)}
           placeholder="Ask me anything about this paper..."
           disabled={isLoading}
-          className="flex-1 px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 focus:border-transparent disabled:opacity-50 placeholder-gray-400"
+          className="flex-1 px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent disabled:opacity-50 placeholder-gray-400"
         />
         <button
           type="submit"
           disabled={isLoading || !input.trim()}
-          className="px-4 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-medium rounded-xl hover:from-amber-600 hover:to-orange-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all text-sm"
+          className="px-4 py-2.5 bg-gray-800 text-white font-medium rounded-xl hover:bg-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm"
         >
           Send
         </button>
