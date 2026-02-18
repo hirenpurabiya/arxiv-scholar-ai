@@ -7,7 +7,7 @@ Uses Google Gemini (free tier).
 import logging
 from typing import Dict, Any, List
 
-from .config import GOOGLE_API_KEY, GEMINI_MODEL
+from .config import GOOGLE_API_KEY
 
 logger = logging.getLogger(__name__)
 
@@ -53,10 +53,10 @@ def _chat_with_gemini(
         return {"success": False, "error_type": "not_configured", "error": "Google Gemini API key not configured."}
 
     try:
-        from google import genai
+        import google.generativeai as genai
 
-        # Create client with API key
-        client = genai.Client(api_key=GOOGLE_API_KEY)
+        # Configure the API key
+        genai.configure(api_key=GOOGLE_API_KEY)
 
         # Build the full prompt with system instruction and history
         full_prompt = system_prompt + "\n\n"
@@ -69,11 +69,9 @@ def _chat_with_gemini(
         # Add current message
         full_prompt += f"User: {message}\n\nAssistant:"
 
-        # Generate response using the simple API
-        response = client.models.generate_content(
-            model=GEMINI_MODEL,
-            contents=full_prompt,
-        )
+        # Use gemini-1.5-flash which has good free tier (15 RPM)
+        model = genai.GenerativeModel("gemini-1.5-flash")
+        response = model.generate_content(full_prompt)
 
         return {"success": True, "response": response.text}
 
