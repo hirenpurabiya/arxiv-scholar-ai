@@ -4,6 +4,23 @@ A collection of software engineering, computer science, and AI concepts learned 
 
 ---
 
+## Progress Tracker
+
+**Current Course:** MCP Labs (Model Context Protocol)
+
+| Lab | Status | Last Line Covered | Notes |
+|-----|--------|-------------------|-------|
+| L3 | Completed | All | Basics |
+| L4 | In Progress | Line 1 | Just started |
+| L5 | Not Started | - | |
+| L6 | Not Started | - | |
+| L7 | Not Started | - | |
+| L9 | Not Started | - | |
+
+*Last updated: 2026-02-17*
+
+---
+
 ## Table of Contents
 
 1. [Functions, Parameters, Type Hints, Return Types](#1-functions-parameters-type-hints-return-types)
