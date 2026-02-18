@@ -141,7 +141,7 @@ async def search_articles(
         )
     except Exception as e:
         logger.error(f"Search failed for topic '{topic}': {e}")
-        raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="The server is warming up or arXiv is temporarily unavailable. Please try again in a moment.")
 
 
 @app.get("/api/article/{article_id}", response_model=ArticleResponse)
