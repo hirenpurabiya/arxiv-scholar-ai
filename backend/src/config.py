@@ -17,6 +17,9 @@ ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 # Google Gemini API key for chat (free tier)
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
+# Gemini model (gemini-1.5-flash has best free tier: 15 req/min, 1M tokens/day)
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+
 # Default number of articles to return per search
 DEFAULT_MAX_RESULTS = 5
 

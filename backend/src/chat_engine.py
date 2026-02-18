@@ -7,7 +7,7 @@ Uses Google Gemini (free tier).
 import logging
 from typing import Dict, Any, List
 
-from .config import GOOGLE_API_KEY
+from .config import GOOGLE_API_KEY, GEMINI_MODEL
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +71,7 @@ def _chat_with_gemini(
 
         # Generate response using the simple API
         response = client.models.generate_content(
-            model="gemini-2.0-flash",
+            model=GEMINI_MODEL,
             contents=full_prompt,
         )
 
