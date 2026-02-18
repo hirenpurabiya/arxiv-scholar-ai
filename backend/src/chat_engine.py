@@ -43,48 +43,54 @@ def _build_system_prompt(article: Dict[str, Any]) -> str:
     )
 
 
+GEMINI_MODELS = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-2.0-flash-lite"]
+
+
 def _chat_with_gemini(
     system_prompt: str,
     message: str,
     history: List[Dict[str, str]],
 ) -> Dict[str, Any]:
-    """Send a chat request to Google Gemini."""
+    """Send a chat request to Google Gemini via direct REST API."""
     if not GOOGLE_API_KEY:
         return {"success": False, "error_type": "not_configured", "error": "Google Gemini API key not configured."}
 
-    try:
-        import google.generativeai as genai
+    import requests
 
-        # Configure the API key
-        genai.configure(api_key=GOOGLE_API_KEY)
+    full_prompt = system_prompt + "\n\n"
+    for msg in history:
+        role_label = "User" if msg["role"] == "user" else "Assistant"
+        full_prompt += f"{role_label}: {msg['content']}\n\n"
+    full_prompt += f"User: {message}\n\nAssistant:"
 
-        # Build the full prompt with system instruction and history
-        full_prompt = system_prompt + "\n\n"
-        
-        # Add conversation history
-        for msg in history:
-            role_label = "User" if msg["role"] == "user" else "Assistant"
-            full_prompt += f"{role_label}: {msg['content']}\n\n"
-        
-        # Add current message
-        full_prompt += f"User: {message}\n\nAssistant:"
+    payload = {"contents": [{"parts": [{"text": full_prompt}]}]}
+    last_error = None
 
-        # Use gemini-1.5-flash which has good free tier (15 RPM)
-        model = genai.GenerativeModel("gemini-1.5-flash")
-        response = model.generate_content(full_prompt)
+    for model_name in GEMINI_MODELS:
+        for api_version in ["v1", "v1beta"]:
+            url = f"https://generativelanguage.googleapis.com/{api_version}/models/{model_name}:generateContent?key={GOOGLE_API_KEY}"
+            try:
+                resp = requests.post(url, json=payload, timeout=30)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    text = data["candidates"][0]["content"]["parts"][0]["text"]
+                    logger.info(f"Gemini success: model={model_name}, api={api_version}")
+                    return {"success": True, "response": text}
+                else:
+                    last_error = f"{resp.status_code}: {resp.text[:300]}"
+                    logger.warning(f"Gemini {model_name} ({api_version}): {resp.status_code}")
+            except requests.exceptions.Timeout:
+                last_error = "Request timed out"
+                logger.warning(f"Gemini {model_name} ({api_version}): timeout")
+            except Exception as e:
+                last_error = str(e)
+                logger.warning(f"Gemini {model_name} ({api_version}): {e}")
 
-        return {"success": True, "response": response.text}
-
-    except Exception as e:
-        error_str = str(e).lower()
-        logger.error(f"Gemini chat failed: {e}")
-        
-        if "rate" in error_str or "429" in error_str or "quota" in error_str:
-            return {"success": False, "error_type": "rate_limited", "error": str(e)}
-        elif "billing" in error_str or "402" in error_str:
-            return {"success": False, "error_type": "credits_exhausted", "error": str(e)}
-        else:
-            return {"success": False, "error_type": "unknown", "error": str(e)}
+    logger.error(f"All Gemini models failed. Last error: {last_error}")
+    error_str = (last_error or "").lower()
+    if "429" in error_str or "quota" in error_str or "rate" in error_str:
+        return {"success": False, "error_type": "rate_limited", "error": last_error}
+    return {"success": False, "error_type": "unknown", "error": last_error}
 
 
 def chat_about_article(
