@@ -98,7 +98,7 @@ export default function ELI10Chat({ articleId, articleTitle }: ELI10ChatProps) {
   const showSuggestions = messages.length === 1;
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm">
+    <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm min-w-0 max-w-full">
       {/* Header */}
       <div className="bg-slate-700 px-5 py-3">
         <div className="flex items-center gap-3">
@@ -179,7 +179,7 @@ export default function ELI10Chat({ articleId, articleTitle }: ELI10ChatProps) {
       {/* Input */}
       <form
         onSubmit={handleSubmit}
-        className="border-t border-gray-200 bg-white p-3 flex gap-2"
+        className="border-t border-gray-200 bg-white p-3 flex gap-2 min-w-0"
       >
         <input
           ref={inputRef}
@@ -188,12 +188,12 @@ export default function ELI10Chat({ articleId, articleTitle }: ELI10ChatProps) {
           onChange={(e) => setInput(e.target.value)}
           placeholder="Ask me anything about this paper..."
           disabled={isLoading}
-          className="flex-1 px-4 py-2.5 bg-white border border-gray-300 rounded-xl text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 placeholder-gray-400"
+          className="flex-1 min-w-0 px-4 py-2.5 bg-white border border-gray-300 rounded-xl text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 placeholder-gray-400"
         />
         <button
           type="submit"
           disabled={isLoading || !input.trim()}
-          className="px-4 py-2.5 bg-blue-600 text-white font-medium rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm"
+          className="shrink-0 px-4 py-2.5 bg-blue-600 text-white font-medium rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm"
         >
           Send
         </button>
