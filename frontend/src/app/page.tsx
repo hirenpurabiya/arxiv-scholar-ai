@@ -109,6 +109,14 @@ function HomeContent() {
       <header className="border-b border-gray-100 bg-white/80 backdrop-blur-sm sticky top-0 z-10">
         <div className="w-full mx-auto px-6 lg:px-12 xl:px-20 py-4">
           <div className="flex items-center gap-3">
+            <a
+              href="https://hirenpurabiya.github.io/ai-portfolio/projects/arxiv-scholar-ai/"
+              className="text-sm text-gray-400 hover:text-blue-600 transition-colors flex items-center gap-1"
+            >
+              <span>&larr;</span>
+              <span>Portfolio</span>
+            </a>
+            <div className="h-6 w-px bg-gray-200" />
             <div className="w-9 h-9 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center">
               <span className="text-white font-bold text-sm">AS</span>
             </div>
