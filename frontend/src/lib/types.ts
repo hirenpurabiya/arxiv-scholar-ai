@@ -47,6 +47,14 @@ export interface ChatResponse {
   suggestion?: string;
 }
 
+// MCP Agent reasoning step types
+export type MCPStepType = "thinking" | "tool_call" | "tool_result" | "answer" | "error" | "done";
+
+export interface MCPStep {
+  type: MCPStepType;
+  content: string | { name: string; args?: Record<string, unknown>; result?: string };
+}
+
 // Search filter types
 export type SortOption = "relevance" | "date" | "updated";
 export type DatePreset = "all" | "week" | "month" | "year" | "custom";

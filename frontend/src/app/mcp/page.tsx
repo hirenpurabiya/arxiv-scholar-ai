@@ -1,0 +1,119 @@
+"use client";
+
+import Link from "next/link";
+import MCPPlayground from "@/components/MCPPlayground";
+
+export default function MCPPage() {
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
+      {/* Header */}
+      <header className="border-b border-gray-100 bg-white/80 backdrop-blur-sm sticky top-0 z-10">
+        <div className="w-full mx-auto px-6 lg:px-12 xl:px-20 py-4">
+          <div className="flex items-center gap-3">
+            <Link
+              href="/"
+              className="text-sm text-gray-400 hover:text-blue-600 transition-colors flex items-center gap-1"
+            >
+              <span>&larr;</span>
+              <span>Search</span>
+            </Link>
+            <div className="h-6 w-px bg-gray-200" />
+            <div className="w-9 h-9 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center">
+              <span className="text-white font-bold text-sm">AS</span>
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-gray-900">
+                MCP Playground
+              </h1>
+              <p className="text-xs text-gray-500">
+                Watch AI reason and call tools in real-time
+              </p>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="w-full mx-auto px-6 lg:px-12 xl:px-20 py-10">
+        <div className="mb-8">
+          <h2 className="text-3xl font-bold text-gray-900 mb-2">
+            Live AI Agent Demo
+          </h2>
+          <p className="text-gray-500 max-w-2xl">
+            Type a natural language query and watch Gemini decide which
+            tools to call, execute them, and compose a response. Every step is
+            real -- nothing is pre-recorded or simulated.
+          </p>
+        </div>
+
+        <MCPPlayground />
+
+        {/* How It Works */}
+        <div className="mt-12 border-t border-gray-100 pt-10">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">
+            How It Works
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            {[
+              {
+                step: "1",
+                title: "You Ask",
+                desc: "Type any question about research papers in natural language.",
+              },
+              {
+                step: "2",
+                title: "Gemini Decides",
+                desc: "The AI analyzes your query and picks which MCP tools to use.",
+              },
+              {
+                step: "3",
+                title: "Tools Execute",
+                desc: "search_arxiv, summarize_paper, explain_paper, and more run in real-time.",
+              },
+              {
+                step: "4",
+                title: "Answer Composed",
+                desc: "Gemini reads the tool results and writes a comprehensive answer.",
+              },
+            ].map((item) => (
+              <div
+                key={item.step}
+                className="relative bg-white rounded-xl border border-gray-100 p-5"
+              >
+                <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-sm mb-3">
+                  {item.step}
+                </div>
+                <h4 className="font-semibold text-gray-900 mb-1">
+                  {item.title}
+                </h4>
+                <p className="text-sm text-gray-500">{item.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Architecture Note */}
+        <div className="mt-8 bg-slate-50 border border-slate-200 rounded-xl p-5">
+          <h4 className="text-sm font-semibold text-slate-700 mb-2">
+            Architecture
+          </h4>
+          <p className="text-sm text-slate-600">
+            This demo uses the{" "}
+            <span className="font-semibold">Model Context Protocol (MCP)</span>{" "}
+            pattern: Gemini acts as the AI reasoning engine, MCP tool
+            declarations describe what the backend can do, and the agentic loop
+            handles tool execution and multi-turn reasoning. Responses stream via
+            Server-Sent Events (SSE) for real-time display.
+          </p>
+        </div>
+      </main>
+
+      {/* Footer */}
+      <footer className="border-t border-gray-100 mt-20">
+        <div className="w-full mx-auto px-6 lg:px-12 xl:px-20 py-6 text-center">
+          <p className="text-sm text-gray-400">ArXiv Scholar AI</p>
+        </div>
+      </footer>
+    </div>
+  );
+}
