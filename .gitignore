@@ -30,6 +30,9 @@ out/
 # Cursor config (private)
 .cursorrules
 
+# Private docs (not for public)
+docs/arxivscholarailinkedinpost.md
+
 # IDE
 .vscode/
 .idea/
