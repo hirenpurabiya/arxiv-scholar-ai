@@ -4,10 +4,10 @@ import MCPPlayground from "@/components/MCPPlayground";
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
+    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white overflow-x-hidden">
       {/* Header */}
       <header className="border-b border-gray-100 bg-white/80 backdrop-blur-sm sticky top-0 z-10">
-        <div className="w-full mx-auto px-6 lg:px-12 xl:px-20 py-4">
+        <div className="w-full max-w-full mx-auto px-4 sm:px-6 lg:px-12 xl:px-20 py-4">
           <div className="flex items-center gap-3">
             <a
               href="https://hirenpurabiya.github.io/ai-portfolio/projects/arxiv-scholar-ai/"
@@ -33,15 +33,14 @@ export default function Home() {
       </header>
 
       {/* Main Content */}
-      <main className="w-full mx-auto px-6 lg:px-12 xl:px-20 py-10">
+      <main className="w-full max-w-full mx-auto px-4 sm:px-6 lg:px-12 xl:px-20 py-10 min-w-0">
         <div className="mb-8">
           <h2 className="text-3xl font-bold text-gray-900 mb-2">
-            Live AI Agent Demo
+            Discover Research Papers
           </h2>
           <p className="text-gray-500 max-w-2xl">
-            Type a natural language query and watch the AI decide which
-            tools to call, execute them, and compose a response. Every step is
-            real -- nothing is pre-recorded or simulated.
+            Search arXiv for academic papers on any topic. Get AI-powered
+            summaries to quickly understand what matters.
           </p>
         </div>
 
@@ -109,7 +108,7 @@ export default function Home() {
 
       {/* Footer */}
       <footer className="border-t border-gray-100 mt-20">
-        <div className="w-full mx-auto px-6 lg:px-12 xl:px-20 py-6 text-center">
+        <div className="w-full max-w-full mx-auto px-4 sm:px-6 lg:px-12 xl:px-20 py-6 text-center">
           <p className="text-sm text-gray-400">ArXiv Scholar AI</p>
         </div>
       </footer>
