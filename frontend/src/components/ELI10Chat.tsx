@@ -29,11 +29,12 @@ export default function ELI10Chat({ articleId, articleTitle }: ELI10ChatProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [suggestion, setSuggestion] = useState<string | null>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const el = messagesContainerRef.current;
+    if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
   }, [messages, isLoading]);
 
   useEffect(() => {
@@ -115,8 +116,11 @@ export default function ELI10Chat({ articleId, articleTitle }: ELI10ChatProps) {
       </div>
 
 
-      {/* Messages */}
-      <div className="h-96 overflow-y-auto p-4 space-y-3">
+      {/* Messages - only this area scrolls, not the page */}
+      <div
+        ref={messagesContainerRef}
+        className="h-96 overflow-y-auto overflow-x-hidden p-4 space-y-3"
+      >
         {messages.map((msg, i) => (
           <div
             key={i}
@@ -173,7 +177,6 @@ export default function ELI10Chat({ articleId, articleTitle }: ELI10ChatProps) {
           </div>
         )}
 
-        <div ref={messagesEndRef} />
       </div>
 
       {/* Input */}
