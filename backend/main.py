@@ -1,8 +1,11 @@
 """
 ArXiv Scholar AI - FastAPI Backend
 Provides REST API endpoints for searching, reading, and summarizing arXiv papers.
+Includes an SSE-streaming MCP agent endpoint for the MCP Playground.
 """
 
+import asyncio
+import json
 import os
 import logging
 from typing import Optional
@@ -10,11 +13,13 @@ from typing import Optional
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+from sse_starlette.sse import EventSourceResponse
 
 from src.article_finder import find_articles
 from src.article_reader import get_article_details, list_all_topics, get_articles_by_topic
 from src.summarizer import summarize_article, explain_like_ten, summarize_with_claude
 from src.chat_engine import chat_about_article
+from src.mcp_agent import run_mcp_agent
 from src.config import DEFAULT_MAX_RESULTS
 from src.security import (
     check_chat_rate_limit,
@@ -257,6 +262,28 @@ async def get_topic_articles(request: Request, topic_slug: str):
         "count": len(articles),
         "articles": list(articles.values()),
     }
+
+
+@app.get("/api/mcp-query")
+async def mcp_query(request: Request, q: str = Query(..., description="Natural language query for the MCP agent")):
+    """
+    Stream MCP agent reasoning steps via Server-Sent Events.
+    The agent uses Gemini to decide which tools to call, executes them,
+    and streams each reasoning step to the client in real-time.
+    """
+    check_search_rate_limit(request)
+
+    async def event_generator():
+        loop = asyncio.get_event_loop()
+        gen = run_mcp_agent(q)
+        while True:
+            try:
+                step = await loop.run_in_executor(None, next, gen)
+                yield json.dumps(step)
+            except StopIteration:
+                break
+
+    return EventSourceResponse(event_generator())
 
 
 @app.post("/api/chat", response_model=ChatResponse)

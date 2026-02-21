@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import SearchBar from "@/components/SearchBar";
 import ArticleCard from "@/components/ArticleCard";
 import ArticleDetail from "@/components/ArticleDetail";
@@ -128,6 +129,12 @@ function HomeContent() {
                 AI-powered research paper discovery
               </p>
             </div>
+            <Link
+              href="/mcp"
+              className="ml-auto px-4 py-2 text-sm font-medium rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 transition-all shadow-sm"
+            >
+              MCP Playground
+            </Link>
           </div>
         </div>
       </header>

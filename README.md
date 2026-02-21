@@ -10,6 +10,7 @@ Search [arXiv](https://arxiv.org/) for academic papers on any topic, get AI-powe
 
 ## Features
 
+- **MCP Playground** -- Live AI agent demo: type a query and watch Gemini reason, pick tools, and compose an answer in real-time ([try it](https://arxiv-scholar-ai.vercel.app/mcp))
 - **Smart Search** -- Search arXiv's 2M+ papers with date filtering and sorting
 - **AI Summarization** -- Gemini-powered summaries with local extraction fallback
 - **Explain Like I'm 10** -- Interactive chat that explains papers in simple terms
@@ -31,10 +32,10 @@ Search [arXiv](https://arxiv.org/) for academic papers on any topic, get AI-powe
 │   Next.js        │     │   FastAPI         │     │   arXiv API  │
 │   Frontend       │────▶│   Backend (REST)  │────▶│   (papers)   │
 │   (React + TS)   │     │   (Python)        │     └──────────────┘
-└──────────────────┘     │                   │
-                         │                   │     ┌──────────────┐
-                         │                   │────▶│ Gemini API   │
-                         │                   │     │ (AI/chat)    │
+│                  │     │                   │
+│  MCP Playground  │SSE  │  /api/mcp-query   │     ┌──────────────┐
+│  (live agent UI) │────▶│  (MCP agent loop) │────▶│ Gemini API   │
+└──────────────────┘     │                   │     │ (reasoning)  │
                          └──────────────────┘     └──────────────┘
 
 ┌──────────────────┐     ┌──────────────────┐
@@ -158,16 +159,72 @@ The MCP layer wraps the existing backend functions as standardized tools that an
 
 ---
 
+## MCP Playground (Live Demo)
+
+Visit [arxiv-scholar-ai.vercel.app/mcp](https://arxiv-scholar-ai.vercel.app/mcp) to see the MCP agent in action.
+
+Type any natural language query like:
+- "Find the latest papers on transformer architecture and summarize the top one"
+- "Search for papers about RAG and explain the best one like I'm 10"
+- "What are the newest papers on LLM reasoning?"
+
+The AI Agent Activity panel shows every step in real-time: which tools Gemini picks, the arguments it sends, and the results that come back. Nothing is pre-recorded or simulated.
+
+### How it works
+
+1. Your query hits `/api/mcp-query` (SSE endpoint)
+2. Gemini receives the query + MCP tool declarations
+3. Gemini picks which tools to call (search, summarize, explain, etc.)
+4. Tools execute against the real backend functions
+5. Gemini reads results and may call more tools or compose the final answer
+6. Every step streams to the browser as a Server-Sent Event
+
+---
+
+## MCP Inspector
+
+Technical recruiters and developers can connect to the MCP server using Anthropic's [MCP Inspector](https://github.com/modelcontextprotocol/inspector):
+
+```bash
+cd backend
+
+# Start the MCP Inspector (opens a browser UI)
+npx @modelcontextprotocol/inspector python mcp_server.py
+```
+
+The Inspector lets you:
+- Browse all available tools, resources, and prompts
+- Call tools interactively and inspect responses
+- Test resource URIs like `arxiv://topics` and `arxiv://paper/{id}`
+- Verify the MCP schema is correct
+
+You can also connect via any MCP-compatible client (Claude Desktop, Cursor, custom agents) using the stdio server:
+
+```json
+{
+  "mcpServers": {
+    "arxiv-scholar-ai": {
+      "command": "python",
+      "args": ["mcp_server.py"],
+      "cwd": "/path/to/arxiv-scholar-ai/backend"
+    }
+  }
+}
+```
+
+---
+
 ## REST API Endpoints
 
-| Method | Endpoint                      | Description                          |
-|--------|-------------------------------|--------------------------------------|
-| GET    | `/api/search?topic=...`       | Search arXiv for articles            |
-| GET    | `/api/article/{article_id}`   | Get details for a specific article   |
-| GET    | `/api/summarize/{article_id}` | Generate AI summary for an article   |
-| POST   | `/api/chat`                   | Chat about a paper (ELI10)           |
-| GET    | `/api/topics`                 | List all searched topics             |
-| GET    | `/api/topics/{topic_slug}`    | Get all articles for a topic         |
+| Method | Endpoint                      | Description                                  |
+|--------|-------------------------------|----------------------------------------------|
+| GET    | `/api/search?topic=...`       | Search arXiv for articles                    |
+| GET    | `/api/article/{article_id}`   | Get details for a specific article           |
+| GET    | `/api/summarize/{article_id}` | Generate AI summary for an article           |
+| POST   | `/api/chat`                   | Chat about a paper (ELI10)                   |
+| GET    | `/api/mcp-query?q=...`        | SSE stream: MCP agent reasoning + tools      |
+| GET    | `/api/topics`                 | List all searched topics                     |
+| GET    | `/api/topics/{topic_slug}`    | Get all articles for a topic                 |
 
 ---
 
@@ -186,18 +243,21 @@ arxiv-scholar-ai/
 │       ├── article_finder.py  # arXiv search with date filtering
 │       ├── article_reader.py  # Article metadata retrieval
 │       ├── summarizer.py      # Gemini AI summarization + local fallback
-│       └── chat_engine.py     # Gemini-powered interactive chat
+│       ├── chat_engine.py     # Gemini-powered interactive chat
+│       └── mcp_agent.py       # Gemini agentic loop (MCP Playground)
 ├── frontend/
 │   ├── src/
 │   │   ├── app/
 │   │   │   ├── layout.tsx     # Root layout
-│   │   │   └── page.tsx       # Main search page
+│   │   │   ├── page.tsx       # Main search page
+│   │   │   └── mcp/page.tsx   # MCP Playground page
 │   │   ├── components/
 │   │   │   ├── SearchBar.tsx    # Search input
 │   │   │   ├── SearchFilters.tsx # Sorting and date filters
 │   │   │   ├── ArticleCard.tsx  # Article preview card
 │   │   │   ├── ArticleDetail.tsx # Full article view + AI features
-│   │   │   └── ELI10Chat.tsx   # Interactive chat component
+│   │   │   ├── ELI10Chat.tsx   # Interactive chat component
+│   │   │   └── MCPPlayground.tsx # Live MCP agent reasoning UI
 │   │   └── lib/
 │   │       ├── api.ts         # Backend API client with retry logic
 │   │       └── types.ts       # TypeScript type definitions
