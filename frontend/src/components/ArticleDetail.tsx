@@ -110,7 +110,7 @@ export default function ArticleDetail({ article, onBack }: ArticleDetailProps) {
                 <button
                   onClick={() => {
                     setShowChat(true);
-                    window.scrollTo({ top: 0, behavior: "smooth" });
+                    setTimeout(() => window.scrollTo({ top: 0, behavior: "smooth" }), 50);
                   }}
                   className="px-5 py-2.5 bg-slate-700 text-white font-medium rounded-xl hover:bg-slate-800 transition-colors shadow-sm"
                 >

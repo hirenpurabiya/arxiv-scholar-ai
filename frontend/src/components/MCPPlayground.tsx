@@ -210,6 +210,7 @@ export default function MCPPlayground() {
     } catch {
       setSelectedArticle(article);
     }
+    setTimeout(() => window.scrollTo({ top: 0, behavior: "smooth" }), 50);
   };
 
   const handleBack = () => setSelectedArticle(null);
