@@ -67,7 +67,7 @@ function ToolResultCollapsible({
         className="flex items-center gap-2 w-full text-left group"
       >
         <svg
-          className={`w-3 h-3 text-slate-500 transition-transform ${expanded ? "rotate-90" : ""}`}
+          className={`w-3 h-3 text-gray-400 transition-transform ${expanded ? "rotate-90" : ""}`}
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -75,18 +75,18 @@ function ToolResultCollapsible({
         >
           <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
         </svg>
-        <span className="text-sm text-slate-400">
+        <span className="text-sm text-gray-500">
           Result from{" "}
-          <span className="text-slate-300 font-medium">{name}</span>
+          <span className="text-gray-700 font-medium">{name}</span>
         </span>
         {!expanded && summary && (
-          <span className="text-xs text-slate-500 truncate ml-1">
+          <span className="text-xs text-gray-400 truncate ml-1">
             -- {summary}
           </span>
         )}
       </button>
       {expanded && (
-        <pre className="mt-2 ml-5 text-xs text-slate-400 bg-slate-800/40 rounded-lg p-3 overflow-x-auto max-h-48 overflow-y-auto">
+        <pre className="mt-2 ml-5 text-xs text-gray-600 bg-gray-50 rounded-lg p-3 overflow-x-auto max-h-48 overflow-y-auto border border-gray-100">
           {(() => {
             try {
               return JSON.stringify(JSON.parse(result), null, 2);
@@ -280,16 +280,16 @@ export default function MCPPlayground() {
 
       {/* Thinking Panel (full width) */}
       {!selectedArticle && (steps.length > 0 || error) && (
-        <div className="bg-slate-900 rounded-xl border border-slate-700 overflow-hidden flex flex-col min-w-0">
-          <div className="px-4 py-3 border-b border-slate-700 flex items-center gap-2 shrink-0">
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col min-w-0">
+          <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-2 shrink-0">
             <div
-              className={`w-2 h-2 rounded-full ${isStreaming ? "bg-green-400 animate-pulse" : "bg-slate-500"}`}
+              className={`w-2 h-2 rounded-full ${isStreaming ? "bg-green-500 animate-pulse" : "bg-gray-300"}`}
             />
-            <h3 className="text-sm font-semibold text-slate-200">
+            <h3 className="text-sm font-semibold text-gray-700">
               Thinking
             </h3>
             {isStreaming && startTime && (
-              <span className="ml-auto text-xs text-slate-400">
+              <span className="ml-auto text-xs text-gray-400">
                 <ElapsedTimer startTime={startTime} />
               </span>
             )}
@@ -303,11 +303,11 @@ export default function MCPPlayground() {
             {steps.map((step, i) => {
               if (step.type === "thinking") {
                 return (
-                  <div key={i} className="border-l-2 border-slate-600 pl-3">
-                    <p className="text-xs font-medium text-slate-500 mb-1">
+                  <div key={i} className="border-l-2 border-gray-200 pl-3">
+                    <p className="text-xs font-medium text-gray-400 mb-1">
                       Thinking
                     </p>
-                    <p className="text-sm text-slate-300">
+                    <p className="text-sm text-gray-700">
                       {step.content as string}
                     </p>
                   </div>
@@ -320,17 +320,17 @@ export default function MCPPlayground() {
                   args?: Record<string, unknown>;
                 };
                 return (
-                  <div key={i} className="border-l-2 border-amber-500/50 pl-3">
-                    <p className="text-xs font-medium text-slate-500 mb-1">
+                  <div key={i} className="border-l-2 border-amber-400 pl-3">
+                    <p className="text-xs font-medium text-gray-400 mb-1">
                       Called{" "}
-                      <span className="text-amber-400">{tc.name}</span>
+                      <span className="text-amber-600 font-semibold">{tc.name}</span>
                     </p>
                     {tc.args && Object.keys(tc.args).length > 0 && (
                       <div className="space-y-0.5">
                         {Object.entries(tc.args).map(([key, val]) => (
-                          <p key={key} className="text-sm text-slate-400">
-                            <span className="text-slate-500">{key}:</span>{" "}
-                            <span className="text-emerald-400">
+                          <p key={key} className="text-sm text-gray-500">
+                            <span className="text-gray-400">{key}:</span>{" "}
+                            <span className="text-emerald-600">
                               {typeof val === "string"
                                 ? `"${val}"`
                                 : JSON.stringify(val)}
@@ -349,7 +349,7 @@ export default function MCPPlayground() {
                   result?: string;
                 };
                 return (
-                  <div key={i} className="border-l-2 border-green-500/50 pl-3">
+                  <div key={i} className="border-l-2 border-green-400 pl-3">
                     <ToolResultCollapsible
                       name={tr.name}
                       result={tr.result || ""}
@@ -362,17 +362,17 @@ export default function MCPPlayground() {
             })}
 
             {isStreaming && (
-              <div className="border-l-2 border-blue-500/50 pl-3">
-                <p className="text-xs font-medium text-slate-500 mb-1">
+              <div className="border-l-2 border-blue-400 pl-3">
+                <p className="text-xs font-medium text-gray-400 mb-1">
                   Thinking
                 </p>
-                <span className="inline-block w-2 h-4 bg-slate-400 animate-pulse rounded-sm" />
+                <span className="inline-block w-2 h-4 bg-gray-300 animate-pulse rounded-sm" />
               </div>
             )}
 
             {error && (
-              <div className="bg-red-900/30 border border-red-700/50 rounded-lg p-4">
-                <p className="text-red-400 text-sm">{error}</p>
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <p className="text-red-600 text-sm">{error}</p>
               </div>
             )}
           </div>
