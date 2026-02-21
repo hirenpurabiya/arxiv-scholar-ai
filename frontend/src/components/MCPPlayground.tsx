@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { MCPStep } from "@/lib/types";
 
 const API_BASE = (
@@ -14,51 +14,79 @@ const SUGGESTED_QUERIES = [
   "Find papers about diffusion models and give me a summary",
 ];
 
-function StepIcon({ type }: { type: string }) {
-  if (type === "thinking") return <span className="text-blue-400 text-sm">&#x1f9e0;</span>;
-  if (type === "tool_call") return <span className="text-amber-400 text-sm">&#x1f527;</span>;
-  if (type === "tool_result") return <span className="text-green-400 text-sm">&#x2705;</span>;
-  if (type === "error") return <span className="text-red-400 text-sm">&#x274c;</span>;
-  return null;
-}
+function ToolResultCollapsible({
+  name,
+  result,
+}: {
+  name: string;
+  result: string;
+}) {
+  const [expanded, setExpanded] = useState(false);
 
-function ToolCallContent({ content }: { content: { name: string; args?: Record<string, unknown> } }) {
-  return (
-    <div className="font-mono text-sm">
-      <span className="text-amber-300 font-semibold">{content.name}</span>
-      <span className="text-slate-400">(</span>
-      {content.args && Object.entries(content.args).map(([key, val], i) => (
-        <span key={key}>
-          {i > 0 && <span className="text-slate-400">, </span>}
-          <span className="text-slate-400">{key}=</span>
-          <span className="text-emerald-300">
-            {typeof val === "string" ? `"${val}"` : JSON.stringify(val)}
-          </span>
-        </span>
-      ))}
-      <span className="text-slate-400">)</span>
-    </div>
-  );
-}
-
-function ToolResultContent({ content }: { content: { name: string; result?: string } }) {
-  const resultStr = content.result || "";
-  let parsed = null;
+  let summary = "";
   try {
-    parsed = JSON.parse(resultStr);
+    const parsed = JSON.parse(result);
+    if (parsed.count !== undefined) {
+      summary = `Found ${parsed.count} paper${parsed.count !== 1 ? "s" : ""}`;
+    } else if (parsed.error) {
+      summary = parsed.error;
+    } else if (parsed.title) {
+      summary = parsed.title;
+    }
   } catch {
-    // not JSON
+    summary = result.length > 80 ? result.slice(0, 80) + "..." : result;
   }
 
   return (
-    <div className="text-sm">
-      <span className="text-green-400 font-semibold">{content.name}</span>
-      <span className="text-slate-400"> returned:</span>
-      <pre className="mt-1 text-xs text-slate-300 bg-slate-800/50 rounded p-2 overflow-x-auto max-h-40 overflow-y-auto">
-        {parsed ? JSON.stringify(parsed, null, 2) : resultStr}
-      </pre>
+    <div>
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="flex items-center gap-2 w-full text-left group"
+      >
+        <svg
+          className={`w-3 h-3 text-slate-500 transition-transform ${expanded ? "rotate-90" : ""}`}
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={2}
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+        </svg>
+        <span className="text-sm text-slate-400">
+          Result from{" "}
+          <span className="text-slate-300 font-medium">{name}</span>
+        </span>
+        {!expanded && summary && (
+          <span className="text-xs text-slate-500 truncate ml-1">
+            -- {summary}
+          </span>
+        )}
+      </button>
+      {expanded && (
+        <pre className="mt-2 ml-5 text-xs text-slate-400 bg-slate-800/40 rounded-lg p-3 overflow-x-auto max-h-48 overflow-y-auto">
+          {(() => {
+            try {
+              return JSON.stringify(JSON.parse(result), null, 2);
+            } catch {
+              return result;
+            }
+          })()}
+        </pre>
+      )}
     </div>
   );
+}
+
+function ElapsedTimer({ startTime }: { startTime: number }) {
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    const interval = setInterval(
+      () => setElapsed(Math.floor((Date.now() - startTime) / 1000)),
+      1000
+    );
+    return () => clearInterval(interval);
+  }, [startTime]);
+  return <span>{elapsed}s</span>;
 }
 
 export default function MCPPlayground() {
@@ -67,12 +95,24 @@ export default function MCPPlayground() {
   const [answer, setAnswer] = useState<string | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const stepsEndRef = useRef<HTMLDivElement>(null);
+  const [startTime, setStartTime] = useState<number | null>(null);
+  const activityPanelRef = useRef<HTMLDivElement>(null);
+  const responsePanelRef = useRef<HTMLDivElement>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
 
+  const scrollActivityToBottom = useCallback(() => {
+    const el = activityPanelRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, []);
+
   useEffect(() => {
-    stepsEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [steps, answer]);
+    scrollActivityToBottom();
+  }, [steps, scrollActivityToBottom]);
+
+  useEffect(() => {
+    const el = responsePanelRef.current;
+    if (el && answer) el.scrollTop = el.scrollHeight;
+  }, [answer]);
 
   const handleSubmit = (queryText?: string) => {
     const q = queryText || query;
@@ -82,11 +122,10 @@ export default function MCPPlayground() {
     setAnswer(null);
     setError(null);
     setIsStreaming(true);
+    setStartTime(Date.now());
     setQuery(q);
 
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
-    }
+    if (eventSourceRef.current) eventSourceRef.current.close();
 
     const es = new EventSource(
       `${API_BASE}/api/mcp-query?q=${encodeURIComponent(q.trim())}`
@@ -102,22 +141,19 @@ export default function MCPPlayground() {
           setIsStreaming(false);
           return;
         }
-
         if (step.type === "answer") {
           setAnswer(step.content as string);
           return;
         }
-
         if (step.type === "error") {
           setError(step.content as string);
           es.close();
           setIsStreaming(false);
           return;
         }
-
         setSteps((prev) => [...prev, step]);
       } catch {
-        // ignore malformed events
+        // ignore malformed
       }
     };
 
@@ -125,7 +161,9 @@ export default function MCPPlayground() {
       es.close();
       setIsStreaming(false);
       if (!answer && steps.length === 0) {
-        setError("Connection lost. The server may be starting up -- please try again in a minute.");
+        setError(
+          "Connection lost. The server may be starting up -- please try again in a minute."
+        );
       }
     };
   };
@@ -137,7 +175,7 @@ export default function MCPPlayground() {
 
   return (
     <div className="space-y-6">
-      {/* Input Section */}
+      {/* Input */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
         <form
           onSubmit={(e) => {
@@ -173,7 +211,6 @@ export default function MCPPlayground() {
           )}
         </form>
 
-        {/* Suggested Queries */}
         {steps.length === 0 && !answer && !error && (
           <div className="mt-4 flex flex-wrap gap-2">
             {SUGGESTED_QUERIES.map((sq) => (
@@ -196,72 +233,115 @@ export default function MCPPlayground() {
       {/* Two-Panel Layout */}
       {(steps.length > 0 || answer || error) && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* AI Agent Activity Panel */}
-          <div className="bg-slate-900 rounded-xl border border-slate-700 overflow-hidden">
-            <div className="px-4 py-3 border-b border-slate-700 flex items-center gap-2">
+          {/* AI Agent Activity */}
+          <div className="bg-slate-900 rounded-xl border border-slate-700 overflow-hidden flex flex-col">
+            <div className="px-4 py-3 border-b border-slate-700 flex items-center gap-2 shrink-0">
               <div
                 className={`w-2 h-2 rounded-full ${isStreaming ? "bg-green-400 animate-pulse" : "bg-slate-500"}`}
               />
               <h3 className="text-sm font-semibold text-slate-200">
-                AI Agent Activity
+                Agent Activity
               </h3>
-              {isStreaming && (
-                <span className="ml-auto text-xs text-green-400">Live</span>
+              {isStreaming && startTime && (
+                <span className="ml-auto text-xs text-slate-400">
+                  <ElapsedTimer startTime={startTime} />
+                </span>
               )}
             </div>
-            <div className="p-4 space-y-3 max-h-[500px] overflow-y-auto">
-              {steps.map((step, i) => (
-                <div key={i} className="flex gap-2">
-                  <StepIcon type={step.type} />
-                  <div className="flex-1 min-w-0">
-                    {step.type === "thinking" && (
-                      <p className="text-sm text-blue-300 italic">
+
+            <div
+              ref={activityPanelRef}
+              className="p-4 space-y-4 overflow-y-auto"
+              style={{ maxHeight: "500px" }}
+            >
+              {steps.map((step, i) => {
+                if (step.type === "thinking") {
+                  return (
+                    <div
+                      key={i}
+                      className="border-l-2 border-slate-600 pl-3"
+                    >
+                      <p className="text-xs font-medium text-slate-500 mb-1">
+                        Thinking
+                      </p>
+                      <p className="text-sm text-slate-300">
                         {step.content as string}
                       </p>
-                    )}
-                    {step.type === "tool_call" && (
-                      <ToolCallContent
-                        content={
-                          step.content as {
-                            name: string;
-                            args?: Record<string, unknown>;
-                          }
-                        }
+                    </div>
+                  );
+                }
+
+                if (step.type === "tool_call") {
+                  const tc = step.content as {
+                    name: string;
+                    args?: Record<string, unknown>;
+                  };
+                  return (
+                    <div key={i} className="border-l-2 border-amber-500/50 pl-3">
+                      <p className="text-xs font-medium text-slate-500 mb-1">
+                        Called{" "}
+                        <span className="text-amber-400">{tc.name}</span>
+                      </p>
+                      {tc.args && Object.keys(tc.args).length > 0 && (
+                        <div className="space-y-0.5">
+                          {Object.entries(tc.args).map(([key, val]) => (
+                            <p
+                              key={key}
+                              className="text-sm text-slate-400"
+                            >
+                              <span className="text-slate-500">{key}:</span>{" "}
+                              <span className="text-emerald-400">
+                                {typeof val === "string"
+                                  ? `"${val}"`
+                                  : JSON.stringify(val)}
+                              </span>
+                            </p>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                }
+
+                if (step.type === "tool_result") {
+                  const tr = step.content as {
+                    name: string;
+                    result?: string;
+                  };
+                  return (
+                    <div key={i} className="border-l-2 border-green-500/50 pl-3">
+                      <ToolResultCollapsible
+                        name={tr.name}
+                        result={tr.result || ""}
                       />
-                    )}
-                    {step.type === "tool_result" && (
-                      <ToolResultContent
-                        content={
-                          step.content as {
-                            name: string;
-                            result?: string;
-                          }
-                        }
-                      />
-                    )}
-                  </div>
-                </div>
-              ))}
+                    </div>
+                  );
+                }
+
+                return null;
+              })}
+
               {isStreaming && (
-                <div className="flex gap-2 items-center">
-                  <div className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
-                  <span className="text-xs text-slate-400">
-                    Agent is working...
-                  </span>
+                <div className="border-l-2 border-blue-500/50 pl-3">
+                  <p className="text-xs font-medium text-slate-500 mb-1">
+                    Thinking
+                  </p>
+                  <span className="inline-block w-2 h-4 bg-slate-400 animate-pulse rounded-sm" />
                 </div>
               )}
-              <div ref={stepsEndRef} />
             </div>
           </div>
 
-          {/* Final Response Panel */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-            <div className="px-4 py-3 border-b border-gray-100">
-              <h3 className="text-sm font-semibold text-gray-700">
-                Response
-              </h3>
+          {/* Response */}
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col">
+            <div className="px-4 py-3 border-b border-gray-100 shrink-0">
+              <h3 className="text-sm font-semibold text-gray-700">Response</h3>
             </div>
-            <div className="p-5 max-h-[500px] overflow-y-auto">
+            <div
+              ref={responsePanelRef}
+              className="p-5 overflow-y-auto"
+              style={{ maxHeight: "500px" }}
+            >
               {error ? (
                 <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                   <p className="text-red-600 text-sm">{error}</p>

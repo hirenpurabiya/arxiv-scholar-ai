@@ -10,7 +10,7 @@ Search [arXiv](https://arxiv.org/) for academic papers on any topic, get AI-powe
 
 ## Features
 
-- **MCP Playground** -- Live AI agent demo: type a query and watch Gemini reason, pick tools, and compose an answer in real-time ([try it](https://arxiv-scholar-ai.vercel.app/mcp))
+- **MCP Playground** -- Live AI agent demo on the landing page: type a query and watch Gemini reason, pick tools, and compose an answer in real-time ([try it](https://arxiv-scholar-ai.vercel.app))
 - **Smart Search** -- Search arXiv's 2M+ papers with date filtering and sorting
 - **AI Summarization** -- Gemini-powered summaries with local extraction fallback
 - **Explain Like I'm 10** -- Interactive chat that explains papers in simple terms
@@ -161,7 +161,7 @@ The MCP layer wraps the existing backend functions as standardized tools that an
 
 ## MCP Playground (Live Demo)
 
-Visit [arxiv-scholar-ai.vercel.app/mcp](https://arxiv-scholar-ai.vercel.app/mcp) to see the MCP agent in action.
+Visit [arxiv-scholar-ai.vercel.app](https://arxiv-scholar-ai.vercel.app) to see the MCP agent in action. It's the first thing you see when you open the app.
 
 Type any natural language query like:
 - "Find the latest papers on transformer architecture and summarize the top one"
@@ -249,8 +249,8 @@ arxiv-scholar-ai/
 │   ├── src/
 │   │   ├── app/
 │   │   │   ├── layout.tsx     # Root layout
-│   │   │   ├── page.tsx       # Main search page
-│   │   │   └── mcp/page.tsx   # MCP Playground page
+│   │   │   ├── page.tsx       # MCP Playground (main landing page)
+│   │   │   └── search/page.tsx # Traditional search page
 │   │   ├── components/
 │   │   │   ├── SearchBar.tsx    # Search input
 │   │   │   ├── SearchFilters.tsx # Sorting and date filters
