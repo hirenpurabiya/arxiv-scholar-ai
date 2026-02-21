@@ -1,7 +1,10 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { MCPStep } from "@/lib/types";
+import { Article, MCPStep } from "@/lib/types";
+import { getArticleDetails } from "@/lib/api";
+import ArticleCard from "./ArticleCard";
+import ArticleDetail from "./ArticleDetail";
 
 const API_BASE = (
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
@@ -13,6 +16,26 @@ const SUGGESTED_QUERIES = [
   "What are the newest papers on LLM reasoning?",
   "Find papers about diffusion models and give me a summary",
 ];
+
+function parsePapersFromResult(result: string, queryTopic: string): Article[] {
+  try {
+    const parsed = JSON.parse(result);
+    if (!parsed.papers || !Array.isArray(parsed.papers)) return [];
+    return parsed.papers.map(
+      (p: { id: string; title: string; authors: string[]; published: string }) => ({
+        id: p.id,
+        title: p.title,
+        authors: p.authors || [],
+        published: p.published || "",
+        summary: "",
+        pdf_url: `https://arxiv.org/pdf/${p.id}`,
+        topic: queryTopic,
+      })
+    );
+  } catch {
+    return [];
+  }
+}
 
 function ToolResultCollapsible({
   name,
@@ -92,12 +115,12 @@ function ElapsedTimer({ startTime }: { startTime: number }) {
 export default function MCPPlayground() {
   const [query, setQuery] = useState("");
   const [steps, setSteps] = useState<MCPStep[]>([]);
-  const [answer, setAnswer] = useState<string | null>(null);
+  const [papers, setPapers] = useState<Article[]>([]);
+  const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [startTime, setStartTime] = useState<number | null>(null);
   const activityPanelRef = useRef<HTMLDivElement>(null);
-  const responsePanelRef = useRef<HTMLDivElement>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
 
   const scrollActivityToBottom = useCallback(() => {
@@ -109,17 +132,13 @@ export default function MCPPlayground() {
     scrollActivityToBottom();
   }, [steps, scrollActivityToBottom]);
 
-  useEffect(() => {
-    const el = responsePanelRef.current;
-    if (el && answer) el.scrollTop = el.scrollHeight;
-  }, [answer]);
-
   const handleSubmit = (queryText?: string) => {
     const q = queryText || query;
     if (!q.trim() || isStreaming) return;
 
     setSteps([]);
-    setAnswer(null);
+    setPapers([]);
+    setSelectedArticle(null);
     setError(null);
     setIsStreaming(true);
     setStartTime(Date.now());
@@ -142,7 +161,9 @@ export default function MCPPlayground() {
           return;
         }
         if (step.type === "answer") {
-          setAnswer(step.content as string);
+          // We don't display the text answer anymore; papers are shown as cards
+          es.close();
+          setIsStreaming(false);
           return;
         }
         if (step.type === "error") {
@@ -151,7 +172,16 @@ export default function MCPPlayground() {
           setIsStreaming(false);
           return;
         }
+
         setSteps((prev) => [...prev, step]);
+
+        if (step.type === "tool_result") {
+          const tr = step.content as { name: string; result?: string };
+          if (tr.name === "search_arxiv" && tr.result) {
+            const found = parsePapersFromResult(tr.result, q);
+            if (found.length > 0) setPapers(found);
+          }
+        }
       } catch {
         // ignore malformed
       }
@@ -160,7 +190,7 @@ export default function MCPPlayground() {
     es.onerror = () => {
       es.close();
       setIsStreaming(false);
-      if (!answer && steps.length === 0) {
+      if (steps.length === 0 && papers.length === 0) {
         setError(
           "Connection lost. The server may be starting up -- please try again in a minute."
         );
@@ -173,196 +203,196 @@ export default function MCPPlayground() {
     setIsStreaming(false);
   };
 
+  const handleSelectArticle = async (article: Article) => {
+    try {
+      const full = await getArticleDetails(article.id);
+      setSelectedArticle(full);
+    } catch {
+      setSelectedArticle(article);
+    }
+  };
+
+  const handleBack = () => setSelectedArticle(null);
+
   return (
     <div className="space-y-6">
       {/* Input */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            handleSubmit();
-          }}
-          className="flex gap-3"
-        >
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Ask anything about research papers..."
-            className="flex-1 px-4 py-3 rounded-lg border border-gray-200 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-            disabled={isStreaming}
-          />
-          {isStreaming ? (
-            <button
-              type="button"
-              onClick={handleStop}
-              className="px-6 py-3 rounded-lg bg-red-500 text-white font-medium text-sm hover:bg-red-600 transition-colors"
-            >
-              Stop
-            </button>
-          ) : (
-            <button
-              type="submit"
-              disabled={!query.trim()}
-              className="px-6 py-3 rounded-lg bg-blue-600 text-white font-medium text-sm hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Run Agent
-            </button>
-          )}
-        </form>
-
-        {steps.length === 0 && !answer && !error && (
-          <div className="mt-4 flex flex-wrap gap-2">
-            {SUGGESTED_QUERIES.map((sq) => (
+      {!selectedArticle && (
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSubmit();
+            }}
+            className="flex gap-3"
+          >
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Ask anything about research papers..."
+              className="flex-1 px-4 py-3 rounded-lg border border-gray-200 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+              disabled={isStreaming}
+            />
+            {isStreaming ? (
               <button
-                key={sq}
-                onClick={() => {
-                  setQuery(sq);
-                  handleSubmit(sq);
-                }}
-                className="px-3 py-1.5 text-xs rounded-full border border-gray-200 text-gray-600 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700 transition-colors"
-                disabled={isStreaming}
+                type="button"
+                onClick={handleStop}
+                className="px-6 py-3 rounded-lg bg-red-500 text-white font-medium text-sm hover:bg-red-600 transition-colors"
               >
-                {sq}
+                Stop
               </button>
-            ))}
-          </div>
-        )}
-      </div>
+            ) : (
+              <button
+                type="submit"
+                disabled={!query.trim()}
+                className="px-6 py-3 rounded-lg bg-blue-600 text-white font-medium text-sm hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Run Agent
+              </button>
+            )}
+          </form>
 
-      {/* Two-Panel Layout */}
-      {(steps.length > 0 || answer || error) && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* AI Agent Activity */}
-          <div className="bg-slate-900 rounded-xl border border-slate-700 overflow-hidden flex flex-col">
-            <div className="px-4 py-3 border-b border-slate-700 flex items-center gap-2 shrink-0">
-              <div
-                className={`w-2 h-2 rounded-full ${isStreaming ? "bg-green-400 animate-pulse" : "bg-slate-500"}`}
-              />
-              <h3 className="text-sm font-semibold text-slate-200">
-                Agent Activity
-              </h3>
-              {isStreaming && startTime && (
-                <span className="ml-auto text-xs text-slate-400">
-                  <ElapsedTimer startTime={startTime} />
-                </span>
-              )}
+          {steps.length === 0 && !error && papers.length === 0 && (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {SUGGESTED_QUERIES.map((sq) => (
+                <button
+                  key={sq}
+                  onClick={() => {
+                    setQuery(sq);
+                    handleSubmit(sq);
+                  }}
+                  className="px-3 py-1.5 text-xs rounded-full border border-gray-200 text-gray-600 hover:bg-blue-50 hover:border-blue-200 hover:text-blue-700 transition-colors"
+                  disabled={isStreaming}
+                >
+                  {sq}
+                </button>
+              ))}
             </div>
+          )}
+        </div>
+      )}
 
+      {/* Article Detail View */}
+      {selectedArticle && (
+        <ArticleDetail article={selectedArticle} onBack={handleBack} />
+      )}
+
+      {/* Thinking Panel (full width) */}
+      {!selectedArticle && (steps.length > 0 || error) && (
+        <div className="bg-slate-900 rounded-xl border border-slate-700 overflow-hidden flex flex-col">
+          <div className="px-4 py-3 border-b border-slate-700 flex items-center gap-2 shrink-0">
             <div
-              ref={activityPanelRef}
-              className="p-4 space-y-4 overflow-y-auto"
-              style={{ maxHeight: "500px" }}
-            >
-              {steps.map((step, i) => {
-                if (step.type === "thinking") {
-                  return (
-                    <div
-                      key={i}
-                      className="border-l-2 border-slate-600 pl-3"
-                    >
-                      <p className="text-xs font-medium text-slate-500 mb-1">
-                        Thinking
-                      </p>
-                      <p className="text-sm text-slate-300">
-                        {step.content as string}
-                      </p>
-                    </div>
-                  );
-                }
-
-                if (step.type === "tool_call") {
-                  const tc = step.content as {
-                    name: string;
-                    args?: Record<string, unknown>;
-                  };
-                  return (
-                    <div key={i} className="border-l-2 border-amber-500/50 pl-3">
-                      <p className="text-xs font-medium text-slate-500 mb-1">
-                        Called{" "}
-                        <span className="text-amber-400">{tc.name}</span>
-                      </p>
-                      {tc.args && Object.keys(tc.args).length > 0 && (
-                        <div className="space-y-0.5">
-                          {Object.entries(tc.args).map(([key, val]) => (
-                            <p
-                              key={key}
-                              className="text-sm text-slate-400"
-                            >
-                              <span className="text-slate-500">{key}:</span>{" "}
-                              <span className="text-emerald-400">
-                                {typeof val === "string"
-                                  ? `"${val}"`
-                                  : JSON.stringify(val)}
-                              </span>
-                            </p>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  );
-                }
-
-                if (step.type === "tool_result") {
-                  const tr = step.content as {
-                    name: string;
-                    result?: string;
-                  };
-                  return (
-                    <div key={i} className="border-l-2 border-green-500/50 pl-3">
-                      <ToolResultCollapsible
-                        name={tr.name}
-                        result={tr.result || ""}
-                      />
-                    </div>
-                  );
-                }
-
-                return null;
-              })}
-
-              {isStreaming && (
-                <div className="border-l-2 border-blue-500/50 pl-3">
-                  <p className="text-xs font-medium text-slate-500 mb-1">
-                    Thinking
-                  </p>
-                  <span className="inline-block w-2 h-4 bg-slate-400 animate-pulse rounded-sm" />
-                </div>
-              )}
-            </div>
+              className={`w-2 h-2 rounded-full ${isStreaming ? "bg-green-400 animate-pulse" : "bg-slate-500"}`}
+            />
+            <h3 className="text-sm font-semibold text-slate-200">
+              Thinking
+            </h3>
+            {isStreaming && startTime && (
+              <span className="ml-auto text-xs text-slate-400">
+                <ElapsedTimer startTime={startTime} />
+              </span>
+            )}
           </div>
 
-          {/* Response */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col">
-            <div className="px-4 py-3 border-b border-gray-100 shrink-0">
-              <h3 className="text-sm font-semibold text-gray-700">Response</h3>
-            </div>
-            <div
-              ref={responsePanelRef}
-              className="p-5 overflow-y-auto"
-              style={{ maxHeight: "500px" }}
-            >
-              {error ? (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                  <p className="text-red-600 text-sm">{error}</p>
-                </div>
-              ) : answer ? (
-                <div className="prose prose-sm max-w-none text-gray-700 whitespace-pre-wrap">
-                  {answer}
-                </div>
-              ) : isStreaming ? (
-                <div className="flex items-center gap-3 text-gray-400">
-                  <div className="w-5 h-5 border-2 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
-                  <span className="text-sm">
-                    Waiting for the agent to finish...
-                  </span>
-                </div>
-              ) : (
-                <p className="text-sm text-gray-400">
-                  The agent&apos;s response will appear here.
+          <div
+            ref={activityPanelRef}
+            className="p-4 space-y-4 overflow-y-auto"
+            style={{ maxHeight: "400px" }}
+          >
+            {steps.map((step, i) => {
+              if (step.type === "thinking") {
+                return (
+                  <div key={i} className="border-l-2 border-slate-600 pl-3">
+                    <p className="text-xs font-medium text-slate-500 mb-1">
+                      Thinking
+                    </p>
+                    <p className="text-sm text-slate-300">
+                      {step.content as string}
+                    </p>
+                  </div>
+                );
+              }
+
+              if (step.type === "tool_call") {
+                const tc = step.content as {
+                  name: string;
+                  args?: Record<string, unknown>;
+                };
+                return (
+                  <div key={i} className="border-l-2 border-amber-500/50 pl-3">
+                    <p className="text-xs font-medium text-slate-500 mb-1">
+                      Called{" "}
+                      <span className="text-amber-400">{tc.name}</span>
+                    </p>
+                    {tc.args && Object.keys(tc.args).length > 0 && (
+                      <div className="space-y-0.5">
+                        {Object.entries(tc.args).map(([key, val]) => (
+                          <p key={key} className="text-sm text-slate-400">
+                            <span className="text-slate-500">{key}:</span>{" "}
+                            <span className="text-emerald-400">
+                              {typeof val === "string"
+                                ? `"${val}"`
+                                : JSON.stringify(val)}
+                            </span>
+                          </p>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+
+              if (step.type === "tool_result") {
+                const tr = step.content as {
+                  name: string;
+                  result?: string;
+                };
+                return (
+                  <div key={i} className="border-l-2 border-green-500/50 pl-3">
+                    <ToolResultCollapsible
+                      name={tr.name}
+                      result={tr.result || ""}
+                    />
+                  </div>
+                );
+              }
+
+              return null;
+            })}
+
+            {isStreaming && (
+              <div className="border-l-2 border-blue-500/50 pl-3">
+                <p className="text-xs font-medium text-slate-500 mb-1">
+                  Thinking
                 </p>
-              )}
-            </div>
+                <span className="inline-block w-2 h-4 bg-slate-400 animate-pulse rounded-sm" />
+              </div>
+            )}
+
+            {error && (
+              <div className="bg-red-900/30 border border-red-700/50 rounded-lg p-4">
+                <p className="text-red-400 text-sm">{error}</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Paper Cards */}
+      {!selectedArticle && papers.length > 0 && (
+        <div>
+          <p className="text-sm text-gray-500 mb-4">
+            Found {papers.length} paper{papers.length !== 1 ? "s" : ""}
+          </p>
+          <div className="flex flex-col gap-4">
+            {papers.map((article) => (
+              <ArticleCard
+                key={article.id}
+                article={article}
+                onSelect={handleSelectArticle}
+              />
+            ))}
           </div>
         </div>
       )}
