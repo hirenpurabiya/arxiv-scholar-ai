@@ -418,6 +418,17 @@ export default function MCPPlayground() {
                 <p className="text-red-600 text-sm">{error}</p>
               </div>
             )}
+
+            {!isStreaming && !error && papers.length === 0 && steps.length > 0 && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <p className="text-blue-800 text-sm font-medium">
+                  No papers found for that query
+                </p>
+                <p className="text-blue-700 text-xs mt-1">
+                  This app searches arXiv for research papers. Try something like: &quot;Find papers about machine learning&quot; or &quot;Search for papers on [your topic]&quot;
+                </p>
+              </div>
+            )}
           </div>
         </div>
       )}
