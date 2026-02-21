@@ -120,8 +120,12 @@ export default function MCPPlayground() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [startTime, setStartTime] = useState<number | null>(null);
+  const [warmingUp, setWarmingUp] = useState(false);
   const activityPanelRef = useRef<HTMLDivElement>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
+  const retryCountRef = useRef(0);
+  const receivedEventRef = useRef(false);
+  const warmupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const scrollActivityToBottom = useCallback(() => {
     const el = activityPanelRef.current;
@@ -132,19 +136,15 @@ export default function MCPPlayground() {
     scrollActivityToBottom();
   }, [steps, scrollActivityToBottom]);
 
-  const handleSubmit = (queryText?: string) => {
-    const q = queryText || query;
-    if (!q.trim() || isStreaming) return;
-
-    setSteps([]);
-    setPapers([]);
-    setSelectedArticle(null);
-    setError(null);
-    setIsStreaming(true);
-    setStartTime(Date.now());
-    setQuery(q);
-
+  const connectSSE = useCallback((q: string) => {
     if (eventSourceRef.current) eventSourceRef.current.close();
+
+    receivedEventRef.current = false;
+
+    if (warmupTimerRef.current) clearTimeout(warmupTimerRef.current);
+    warmupTimerRef.current = setTimeout(() => {
+      if (!receivedEventRef.current) setWarmingUp(true);
+    }, 5000);
 
     const es = new EventSource(
       `${API_BASE}/api/mcp-query?q=${encodeURIComponent(q.trim())}`
@@ -152,6 +152,10 @@ export default function MCPPlayground() {
     eventSourceRef.current = es;
 
     es.onmessage = (event) => {
+      receivedEventRef.current = true;
+      setWarmingUp(false);
+      if (warmupTimerRef.current) clearTimeout(warmupTimerRef.current);
+
       try {
         const step: MCPStep = JSON.parse(event.data);
 
@@ -161,7 +165,6 @@ export default function MCPPlayground() {
           return;
         }
         if (step.type === "answer") {
-          // We don't display the text answer anymore; papers are shown as cards
           es.close();
           setIsStreaming(false);
           return;
@@ -189,18 +192,46 @@ export default function MCPPlayground() {
 
     es.onerror = () => {
       es.close();
-      setIsStreaming(false);
-      if (steps.length === 0 && papers.length === 0) {
-        setError(
-          "Connection lost. The server may be starting up -- please try again in a minute."
-        );
+      if (warmupTimerRef.current) clearTimeout(warmupTimerRef.current);
+
+      if (!receivedEventRef.current && retryCountRef.current < 1) {
+        retryCountRef.current += 1;
+        setWarmingUp(true);
+        setError(null);
+        setTimeout(() => connectSSE(q), 2000);
+        return;
       }
+
+      setIsStreaming(false);
+      setWarmingUp(false);
+      setError(
+        "Could not connect to the server. It may still be waking up -- please try again in a moment."
+      );
     };
+  }, []);
+
+  const handleSubmit = (queryText?: string) => {
+    const q = queryText || query;
+    if (!q.trim() || isStreaming) return;
+
+    setSteps([]);
+    setPapers([]);
+    setSelectedArticle(null);
+    setError(null);
+    setWarmingUp(false);
+    setIsStreaming(true);
+    setStartTime(Date.now());
+    setQuery(q);
+    retryCountRef.current = 0;
+
+    connectSSE(q);
   };
 
   const handleStop = () => {
     eventSourceRef.current?.close();
+    if (warmupTimerRef.current) clearTimeout(warmupTimerRef.current);
     setIsStreaming(false);
+    setWarmingUp(false);
   };
 
   const handleSelectArticle = async (article: Article) => {
@@ -280,7 +311,7 @@ export default function MCPPlayground() {
       )}
 
       {/* Thinking Panel (full width) */}
-      {!selectedArticle && (steps.length > 0 || error) && (
+      {!selectedArticle && (steps.length > 0 || error || isStreaming) && (
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col min-w-0">
           <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-2 shrink-0">
             <div
@@ -368,6 +399,17 @@ export default function MCPPlayground() {
                   Thinking
                 </p>
                 <span className="inline-block w-2 h-4 bg-gray-300 animate-pulse rounded-sm" />
+              </div>
+            )}
+
+            {warmingUp && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                <p className="text-amber-700 text-sm font-medium">
+                  Server is waking up
+                </p>
+                <p className="text-amber-600 text-xs mt-1">
+                  First request may take up to 60 seconds. Subsequent requests will be instant.
+                </p>
               </div>
             )}
 
