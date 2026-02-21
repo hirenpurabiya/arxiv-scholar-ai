@@ -20,6 +20,7 @@ from src.article_reader import get_article_details, list_all_topics, get_article
 from src.summarizer import summarize_article, explain_like_ten, summarize_with_claude
 from src.chat_engine import chat_about_article
 from src.mcp_agent import run_mcp_agent
+from src.topic_suggester import suggest_topic
 from src.config import DEFAULT_MAX_RESULTS
 from src.security import (
     check_chat_rate_limit,
@@ -113,6 +114,20 @@ class ChatResponse(BaseModel):
 async def root():
     """Health check endpoint. HEAD supported for UptimeRobot and other monitors."""
     return {"status": "ok", "app": "ArXiv Scholar AI", "version": "1.0.0"}
+
+
+@app.get("/api/suggest-topic")
+async def api_suggest_topic(
+    request: Request,
+    q: str = Query("", description="User query to infer a research topic from"),
+):
+    """
+    Infer a short arXiv-relevant topic from a user message (e.g. for no-papers-found hints).
+    Returns {"topic": "protein"} or {"topic": null} on failure.
+    """
+    check_general_rate_limit(request)
+    topic = suggest_topic(q)
+    return {"topic": topic}
 
 
 @app.get("/api/search", response_model=SearchResponse)

@@ -122,6 +122,7 @@ export default function MCPPlayground() {
   const [startTime, setStartTime] = useState<number | null>(null);
   const [warmingUp, setWarmingUp] = useState(false);
   const [runEndedWithNoPapers, setRunEndedWithNoPapers] = useState(false);
+  const [suggestedTopic, setSuggestedTopic] = useState<string | null>(null);
   const activityPanelRef = useRef<HTMLDivElement>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
   const retryCountRef = useRef(0);
@@ -141,6 +142,20 @@ export default function MCPPlayground() {
   useEffect(() => {
     papersCountRef.current = papers.length;
   }, [papers]);
+
+  useEffect(() => {
+    if (!runEndedWithNoPapers || !query.trim()) return;
+    const q = query.trim();
+    fetch(
+      `${API_BASE}/api/suggest-topic?q=${encodeURIComponent(q)}`
+    )
+      .then((r) => r.json())
+      .then((data: { topic?: string | null }) => {
+        const t = data?.topic;
+        if (typeof t === "string" && t.length > 0) setSuggestedTopic(t);
+      })
+      .catch(() => {});
+  }, [runEndedWithNoPapers, query]);
 
   const connectSSE = useCallback((q: string) => {
     if (eventSourceRef.current) eventSourceRef.current.close();
@@ -228,6 +243,7 @@ export default function MCPPlayground() {
     setError(null);
     setWarmingUp(false);
     setRunEndedWithNoPapers(false);
+    setSuggestedTopic(null);
     setIsStreaming(true);
     setStartTime(Date.now());
     setQuery(q);
@@ -434,7 +450,7 @@ export default function MCPPlayground() {
                   No papers found for that query
                 </p>
                 <p className="text-blue-700 text-xs mt-1">
-                  This app searches arXiv for research papers. Try something like: &quot;Find papers about machine learning&quot; or &quot;Search for papers on [your topic]&quot;
+                  This app searches arXiv for research papers. Try something like: &quot;Find papers about {suggestedTopic || "your topic"}&quot; or &quot;Search for papers on {suggestedTopic || "your topic"}&quot;
                 </p>
               </div>
             )}
@@ -449,7 +465,7 @@ export default function MCPPlayground() {
             No papers found for that query
           </p>
           <p className="text-blue-700 text-xs mt-1">
-            This app searches arXiv for research papers. Try something like: &quot;Find papers about machine learning&quot; or &quot;Search for papers on [your topic]&quot;
+            This app searches arXiv for research papers. Try something like: &quot;Find papers about {suggestedTopic || "your topic"}&quot; or &quot;Search for papers on {suggestedTopic || "your topic"}&quot;
           </p>
         </div>
       )}
