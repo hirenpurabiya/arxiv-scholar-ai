@@ -298,7 +298,7 @@ export default function MCPPlayground() {
           <div
             ref={activityPanelRef}
             className="p-4 space-y-4 overflow-y-auto"
-            style={{ maxHeight: "400px" }}
+            style={{ height: "400px" }}
           >
             {steps.map((step, i) => {
               if (step.type === "thinking") {

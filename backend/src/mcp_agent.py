@@ -272,7 +272,7 @@ def run_mcp_agent(query: str) -> Generator[Dict[str, Any], None, None]:
 
             yield {
                 "type": "tool_result",
-                "content": {"name": fn_name, "result": _truncate(result_text)},
+                "content": {"name": fn_name, "result": result_text},
             }
 
             function_responses.append({
