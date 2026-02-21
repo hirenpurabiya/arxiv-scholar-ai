@@ -1,19 +1,26 @@
 # ArXiv Scholar AI
 
-**AI-powered research paper discovery and summarization.**
+**AI-powered research paper discovery, summarization, and interactive chat — with a full MCP (Model Context Protocol) integration.**
 
-Search [arXiv](https://arxiv.org/) for academic papers on any topic and get concise AI-powered summaries using Claude. Built with a modern full-stack architecture: Next.js frontend + Python FastAPI backend.
+Search [arXiv](https://arxiv.org/) for academic papers on any topic, get AI-powered summaries, and chat about papers with an "Explain Like I'm 10" AI tutor. Includes an MCP server and client that expose all capabilities as standardized tools, resources, and prompts.
+
+**Live Demo:** [arxiv-scholar-ai.vercel.app](https://arxiv-scholar-ai.vercel.app)
 
 ---
 
 ## Features
 
-- **Smart Search** -- Search arXiv's database of 2M+ papers by any topic
-- **AI Summarization** -- Get clear, concise summaries powered by Claude (Anthropic)
+- **Smart Search** -- Search arXiv's 2M+ papers with date filtering and sorting
+- **AI Summarization** -- Gemini-powered summaries with local extraction fallback
+- **Explain Like I'm 10** -- Interactive chat that explains papers in simple terms
+- **MCP Server** -- Exposes search, summarize, explain, and chat as MCP tools (stdio + SSE)
+- **MCP Client** -- CLI agent that connects to the MCP server with LLM-driven tool calling
+- **MCP Resources** -- Browse saved topics and papers via standard MCP resource URIs
+- **MCP Prompts** -- Pre-built prompt templates for research workflows
 - **PDF Links** -- Direct links to download the full paper PDF
-- **Topic Organization** -- Articles are saved and organized by topic for easy revisiting
-- **Beautiful UI** -- Clean, modern interface built with Next.js and Tailwind CSS
-- **REST API** -- Full API backend you can use independently
+- **Topic Organization** -- Articles saved and organized by topic
+- **Beautiful UI** -- Clean, professional interface built with Next.js and Tailwind CSS
+- **REST API** -- Full FastAPI backend with retry-friendly error handling
 
 ---
 
@@ -22,25 +29,33 @@ Search [arXiv](https://arxiv.org/) for academic papers on any topic and get conc
 ```
 ┌──────────────────┐     ┌──────────────────┐     ┌──────────────┐
 │   Next.js        │     │   FastAPI         │     │   arXiv API  │
-│   Frontend       │────▶│   Backend         │────▶│   (papers)   │
+│   Frontend       │────▶│   Backend (REST)  │────▶│   (papers)   │
 │   (React + TS)   │     │   (Python)        │     └──────────────┘
 └──────────────────┘     │                   │
                          │                   │     ┌──────────────┐
-                         │                   │────▶│ Claude API   │
-                         │                   │     │ (summaries)  │
+                         │                   │────▶│ Gemini API   │
+                         │                   │     │ (AI/chat)    │
                          └──────────────────┘     └──────────────┘
+
+┌──────────────────┐     ┌──────────────────┐
+│   MCP Client     │     │   MCP Server     │     Wraps the same
+│   (CLI agent     │────▶│   (FastMCP)      │────▶ backend functions
+│    + Gemini)     │     │   stdio / SSE    │     as MCP tools
+└──────────────────┘     └──────────────────┘
 ```
 
 ---
 
 ## Tech Stack
 
-| Layer      | Technology                        |
-|------------|-----------------------------------|
-| Frontend   | Next.js 16, React, TypeScript, Tailwind CSS |
-| Backend    | Python, FastAPI, Pydantic         |
-| AI         | Claude (Anthropic API)            |
-| Data       | arXiv API via `arxiv` library     |
+| Layer      | Technology                                     |
+|------------|------------------------------------------------|
+| Frontend   | Next.js, React, TypeScript, Tailwind CSS       |
+| Backend    | Python, FastAPI, Pydantic                      |
+| AI         | Google Gemini (free tier)                       |
+| MCP        | FastMCP, MCP SDK (stdio + SSE transports)      |
+| Data       | arXiv API via `arxiv` library                  |
+| Deployment | Vercel (frontend), Render (backend)            |
 
 ---
 
@@ -50,7 +65,7 @@ Search [arXiv](https://arxiv.org/) for academic papers on any topic and get conc
 
 - Python 3.10+
 - Node.js 18+
-- An [Anthropic API key](https://console.anthropic.com/) (for AI summaries)
+- A [Google API key](https://aistudio.google.com/apikey) (free — for AI summaries and chat)
 
 ### 1. Clone the repo
 
@@ -69,7 +84,7 @@ pip install -r requirements.txt
 
 # Set your API key
 cp .env.example .env
-# Edit .env and add your ANTHROPIC_API_KEY
+# Edit .env and add your GOOGLE_API_KEY
 
 # Run the server
 uvicorn main:app --reload
@@ -87,15 +102,70 @@ npm run dev
 
 The app will be available at `http://localhost:3000`.
 
+### 4. Try the MCP Server (optional)
+
+```bash
+cd backend
+
+# Run the stdio server directly
+python mcp_server.py
+
+# Or test with the MCP inspector
+npx @modelcontextprotocol/inspector python mcp_server.py
+
+# Or start the SSE remote server
+python mcp_remote.py
+```
+
+### 5. Try the MCP Client (optional)
+
+```bash
+cd backend
+python mcp_client.py
+# Then type: "Find papers about transformers" and watch it call tools!
+```
+
 ---
 
-## API Endpoints
+## MCP Integration
+
+The MCP layer wraps the existing backend functions as standardized tools that any MCP-compatible client (Claude Desktop, Cursor, custom agents) can use.
+
+### Tools
+
+| Tool               | Description                                    |
+|--------------------|------------------------------------------------|
+| `search_papers`    | Search arXiv with topic, date, and sort filters |
+| `get_paper`        | Get metadata for a specific paper by ID        |
+| `summarize_paper`  | AI-powered summary of a paper                  |
+| `explain_paper`    | Explain a paper like you're 10 years old       |
+| `chat_about_paper` | Interactive Q&A about a paper                  |
+
+### Resources
+
+| URI Pattern               | Description                        |
+|---------------------------|------------------------------------|
+| `arxiv://topics`          | List all saved research topics     |
+| `arxiv://topic/{slug}`    | Papers for a specific topic        |
+| `arxiv://paper/{id}`      | Full metadata for a specific paper |
+
+### Prompts
+
+| Prompt              | Description                                      |
+|---------------------|--------------------------------------------------|
+| `research_summary`  | Search + summarize papers on a topic             |
+| `explain_like_ten`  | Find a paper and explain it simply               |
+
+---
+
+## REST API Endpoints
 
 | Method | Endpoint                      | Description                          |
 |--------|-------------------------------|--------------------------------------|
 | GET    | `/api/search?topic=...`       | Search arXiv for articles            |
 | GET    | `/api/article/{article_id}`   | Get details for a specific article   |
 | GET    | `/api/summarize/{article_id}` | Generate AI summary for an article   |
+| POST   | `/api/chat`                   | Chat about a paper (ELI10)           |
 | GET    | `/api/topics`                 | List all searched topics             |
 | GET    | `/api/topics/{topic_slug}`    | Get all articles for a topic         |
 
@@ -106,25 +176,30 @@ The app will be available at `http://localhost:3000`.
 ```
 arxiv-scholar-ai/
 ├── backend/
-│   ├── main.py                # FastAPI app and API routes
+│   ├── main.py                # FastAPI app and REST API routes
+│   ├── mcp_server.py          # MCP server (stdio transport)
+│   ├── mcp_client.py          # MCP client CLI agent
+│   ├── mcp_remote.py          # MCP server (SSE transport for deployment)
 │   ├── requirements.txt       # Python dependencies
-│   ├── .env.example           # Environment variable template
 │   └── src/
 │       ├── config.py          # App configuration
-│       ├── article_finder.py  # arXiv search logic
+│       ├── article_finder.py  # arXiv search with date filtering
 │       ├── article_reader.py  # Article metadata retrieval
-│       └── summarizer.py      # Claude AI summarization
+│       ├── summarizer.py      # Gemini AI summarization + local fallback
+│       └── chat_engine.py     # Gemini-powered interactive chat
 ├── frontend/
 │   ├── src/
 │   │   ├── app/
 │   │   │   ├── layout.tsx     # Root layout
 │   │   │   └── page.tsx       # Main search page
 │   │   ├── components/
-│   │   │   ├── SearchBar.tsx    # Search input component
+│   │   │   ├── SearchBar.tsx    # Search input
+│   │   │   ├── SearchFilters.tsx # Sorting and date filters
 │   │   │   ├── ArticleCard.tsx  # Article preview card
-│   │   │   └── ArticleDetail.tsx # Full article view + AI summary
+│   │   │   ├── ArticleDetail.tsx # Full article view + AI features
+│   │   │   └── ELI10Chat.tsx   # Interactive chat component
 │   │   └── lib/
-│   │       ├── api.ts         # Backend API client
+│   │       ├── api.ts         # Backend API client with retry logic
 │   │       └── types.ts       # TypeScript type definitions
 │   └── package.json
 ├── docs/

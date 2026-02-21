@@ -6,16 +6,16 @@ A collection of software engineering, computer science, and AI concepts learned 
 
 ## Progress Tracker
 
-**Current Course:** MCP Labs (Model Context Protocol)
+**Current Focus:** MCP (Model Context Protocol)
 
-| Lab | Status | Last Line Covered | Notes |
-|-----|--------|-------------------|-------|
-| L3 | Completed | All | Basics |
-| L4 | In Progress | Line 1 | Just started |
-| L5 | Not Started | - | |
-| L6 | Not Started | - | |
-| L7 | Not Started | - | |
-| L9 | Not Started | - | |
+| Topic | Status | Notes |
+|-------|--------|-------|
+| MCP Basics | Completed | Protocol overview, architecture |
+| MCP Server | Completed | FastMCP, tools, stdio transport |
+| MCP Client | Completed | Sessions, tool discovery, agentic loop |
+| Multi-Server | Completed | Connecting to multiple MCP servers |
+| Resources & Prompts | Completed | Static/dynamic resources, prompt templates |
+| Remote Deployment | Completed | SSE transport, cloud deployment |
 
 *Last updated: 2026-02-17*
 
@@ -34,6 +34,7 @@ A collection of software engineering, computer science, and AI concepts learned 
 9. [Single Responsibility Principle, Fail Fast, LBYL vs EAFP](#9-single-responsibility-principle-fail-fast-lbyl-vs-eafp)
 10. [Dispatch Tables, Adapter Pattern, Method Chaining vs Module Navigation](#10-dispatch-tables-adapter-pattern-method-chaining-vs-module-navigation)
 11. [Enums, Type Safety, Naming Conventions](#11-enums-type-safety-naming-conventions)
+12. [Model Context Protocol (MCP) -- The USB-C of AI](#12-model-context-protocol-mcp----the-usb-c-of-ai)
 
 ---
 
@@ -486,6 +487,83 @@ Enums prevent mistakes. A plain variable accepts anything (including typos). An 
 - `MAX_RESULTS` -- all caps = constant that never changes (**UPPER_SNAKE_CASE**)
 
 Great engineers follow these conventions so anyone can tell "oh, that's a class" or "that's a variable" just by looking at the name.
+
+---
+
+## 12. Model Context Protocol (MCP) -- The USB-C of AI
+
+### What is MCP?
+
+MCP (Model Context Protocol) is a **standard** created by Anthropic that lets AI models (like Claude, Gemini, GPT) talk to external tools in a consistent way. Think of it like USB-C -- one plug that works with everything, instead of every device needing its own cable.
+
+Before MCP, every AI app had to write custom code to connect to each tool. MCP says: "Here's one protocol everyone follows."
+
+### The three building blocks
+
+1. **Tools** -- Functions the AI can call (like "search_papers" or "summarize_paper"). The AI decides *when* to use them.
+
+2. **Resources** -- Read-only data the AI can look at (like "show me all saved topics"). Think of these as files or database views the AI can browse.
+
+3. **Prompts** -- Pre-built templates that guide the AI through a workflow (like "search for papers on X, summarize each one, then give an overview").
+
+### MCP Server
+
+The server **exposes** tools, resources, and prompts. It's like a restaurant menu -- it tells clients what's available.
+
+```python
+from mcp.server.fastmcp import FastMCP
+
+mcp = FastMCP("my-server")
+
+@mcp.tool()
+def search_papers(topic: str) -> str:
+    """Search for papers on arXiv."""
+    # ... implementation ...
+```
+
+### MCP Client
+
+The client **connects** to a server, discovers what's available, and calls tools on behalf of an LLM. It's the waiter that takes orders from the customer (LLM) and brings them to the kitchen (server).
+
+```python
+from mcp import ClientSession, StdioServerParameters
+from mcp.client.stdio import stdio_client
+
+server = StdioServerParameters(command="python", args=["mcp_server.py"])
+async with stdio_client(server) as (read, write):
+    async with ClientSession(read, write) as session:
+        await session.initialize()
+        tools = await session.list_tools()
+        result = await session.call_tool("search_papers", {"topic": "robots"})
+```
+
+### Transport: stdio vs SSE
+
+- **stdio** -- Server runs as a subprocess on the same machine. Input/output flows through stdin/stdout pipes. Fast, simple, used for local tools.
+
+- **SSE (Server-Sent Events)** -- Server runs on a remote machine (like Render). Communication happens over HTTP. Used for deployed/shared servers.
+
+Same protocol, different "wires." Like calling someone on the phone vs. walkie-talkie -- same conversation, different medium.
+
+### The Agentic Loop with MCP
+
+1. User asks a question
+2. LLM sees the available MCP tools and decides which one to call
+3. Client sends the tool call to the MCP server
+4. Server runs the function and returns results
+5. Client sends results back to the LLM
+6. LLM either calls another tool or gives the final answer
+
+This is the **exact** pattern behind Claude Desktop's tool use, Cursor's MCP integration, and production AI agents.
+
+### Why MCP matters for your career
+
+MCP is becoming the industry standard. Knowing how to build MCP servers and clients shows recruiters and hiring managers that you understand:
+- How AI agents actually work under the hood
+- Protocol design and standardization
+- Client-server architecture
+- Tool calling / function calling patterns
+- How to make AI systems extensible and interoperable
 
 ---
 
