@@ -109,8 +109,9 @@ class ChatResponse(BaseModel):
 # --- API Endpoints ---
 
 @app.get("/")
+@app.head("/")
 async def root():
-    """Health check endpoint."""
+    """Health check endpoint. HEAD supported for UptimeRobot and other monitors."""
     return {"status": "ok", "app": "ArXiv Scholar AI", "version": "1.0.0"}
 
 
