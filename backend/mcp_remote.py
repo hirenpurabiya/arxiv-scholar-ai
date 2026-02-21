@@ -31,7 +31,7 @@ mcp = FastMCP("arxiv-scholar-ai-remote")
 # --------------- Tools (same as stdio server) ---------------
 
 @mcp.tool()
-def search_papers(
+def search_arxiv(
     topic: str,
     max_results: int = 5,
     sort_by: str = "relevance",
@@ -137,7 +137,7 @@ def get_paper_resource(article_id: str) -> str:
 def research_summary(topic: str, num_papers: int = 5) -> str:
     """Search and summarize papers on a topic."""
     return (
-        f"Search for {num_papers} papers about '{topic}' using search_papers. "
+        f"Search for {num_papers} papers about '{topic}' using search_arxiv. "
         f"Summarize each with summarize_paper, then give an overview of themes, "
         f"findings, and gaps."
     )
@@ -147,7 +147,7 @@ def research_summary(topic: str, num_papers: int = 5) -> str:
 def explain_like_ten(topic: str) -> str:
     """Search for papers and explain them simply."""
     return (
-        f"Find papers about '{topic}', pick the most relevant, and explain it "
+        f"Find papers about '{topic}' using search_arxiv, pick the most relevant, and explain it "
         f"simply using explain_paper. Add everyday examples."
     )
 
