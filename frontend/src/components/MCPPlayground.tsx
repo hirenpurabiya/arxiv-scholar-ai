@@ -121,11 +121,13 @@ export default function MCPPlayground() {
   const [error, setError] = useState<string | null>(null);
   const [startTime, setStartTime] = useState<number | null>(null);
   const [warmingUp, setWarmingUp] = useState(false);
+  const [runEndedWithNoPapers, setRunEndedWithNoPapers] = useState(false);
   const activityPanelRef = useRef<HTMLDivElement>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
   const retryCountRef = useRef(0);
   const receivedEventRef = useRef(false);
   const warmupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const papersCountRef = useRef(0);
 
   const scrollActivityToBottom = useCallback(() => {
     const el = activityPanelRef.current;
@@ -135,6 +137,10 @@ export default function MCPPlayground() {
   useEffect(() => {
     scrollActivityToBottom();
   }, [steps, scrollActivityToBottom]);
+
+  useEffect(() => {
+    papersCountRef.current = papers.length;
+  }, [papers]);
 
   const connectSSE = useCallback((q: string) => {
     if (eventSourceRef.current) eventSourceRef.current.close();
@@ -162,11 +168,13 @@ export default function MCPPlayground() {
         if (step.type === "done") {
           es.close();
           setIsStreaming(false);
+          if (papersCountRef.current === 0) setRunEndedWithNoPapers(true);
           return;
         }
         if (step.type === "answer") {
           es.close();
           setIsStreaming(false);
+          if (papersCountRef.current === 0) setRunEndedWithNoPapers(true);
           return;
         }
         if (step.type === "error") {
@@ -219,6 +227,7 @@ export default function MCPPlayground() {
     setSelectedArticle(null);
     setError(null);
     setWarmingUp(false);
+    setRunEndedWithNoPapers(false);
     setIsStreaming(true);
     setStartTime(Date.now());
     setQuery(q);
@@ -430,6 +439,18 @@ export default function MCPPlayground() {
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* No papers found (e.g. off-topic query) - show even when Thinking panel had no steps */}
+      {!selectedArticle && runEndedWithNoPapers && (
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 sm:p-5">
+          <p className="text-blue-800 text-sm font-medium">
+            No papers found for that query
+          </p>
+          <p className="text-blue-700 text-xs mt-1">
+            This app searches arXiv for research papers. Try something like: &quot;Find papers about machine learning&quot; or &quot;Search for papers on [your topic]&quot;
+          </p>
         </div>
       )}
 
