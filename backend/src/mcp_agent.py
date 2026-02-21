@@ -6,6 +6,8 @@ executes tool calls, and yields reasoning steps for real-time streaming.
 
 import json
 import logging
+import re
+import time
 from typing import Generator, Dict, Any
 
 import requests
@@ -18,11 +20,15 @@ from .chat_engine import chat_about_article
 
 logger = logging.getLogger(__name__)
 
-AGENT_MODEL = "gemini-2.0-flash"
-AGENT_API_URL = (
-    f"https://generativelanguage.googleapis.com/v1beta/models/{AGENT_MODEL}"
-    f":generateContent"
-)
+AGENT_MODELS = ["gemini-2.0-flash-lite", "gemini-1.5-flash", "gemini-2.0-flash"]
+API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
+
+
+def _sanitize_error(msg: str) -> str:
+    """Strip API keys and URLs from error messages before sending to the client."""
+    msg = re.sub(r'key=[A-Za-z0-9_-]+', 'key=***', msg)
+    msg = re.sub(r'https?://\S+', '[API endpoint]', msg)
+    return msg
 
 TOOL_DECLARATIONS = [
     {
@@ -114,18 +120,38 @@ TOOL_DECLARATIONS = [
 
 
 def _call_gemini(messages: list, tools: list) -> dict:
-    """Call Gemini API with function declarations and return parsed response."""
+    """
+    Call Gemini API with function declarations.
+    Tries multiple models in order -- if one hits rate limits, falls back to the next.
+    """
     payload: dict = {
         "contents": messages,
         "tools": [{"functionDeclarations": tools}],
     }
-    resp = requests.post(
-        f"{AGENT_API_URL}?key={GOOGLE_API_KEY}",
-        json=payload,
-        timeout=60,
+    last_error = None
+    for model in AGENT_MODELS:
+        url = f"{API_BASE}/{model}:generateContent?key={GOOGLE_API_KEY}"
+        try:
+            resp = requests.post(url, json=payload, timeout=60)
+            if resp.status_code == 429:
+                logger.warning(f"Rate limited on {model}, trying next model...")
+                last_error = f"Rate limited on {model}"
+                time.sleep(1)
+                continue
+            resp.raise_for_status()
+            return resp.json()
+        except requests.exceptions.HTTPError:
+            last_error = f"HTTP error from {model}: {resp.status_code}"
+            logger.warning(last_error)
+            continue
+        except Exception as e:
+            last_error = str(e)
+            logger.warning(f"Error calling {model}: {e}")
+            continue
+
+    raise RuntimeError(
+        "All Gemini models are busy. Please wait about 60 seconds and try again."
     )
-    resp.raise_for_status()
-    return resp.json()
 
 
 def _extract_text(response: dict) -> str | None:
@@ -220,7 +246,7 @@ def run_mcp_agent(query: str) -> Generator[Dict[str, Any], None, None]:
         response = _call_gemini(conversation, TOOL_DECLARATIONS)
     except Exception as e:
         logger.error(f"Gemini initial call failed: {e}")
-        yield {"type": "error", "content": f"AI service error: {e}"}
+        yield {"type": "error", "content": _sanitize_error(str(e))}
         return
 
     tool_calls = _extract_tool_calls(response)
@@ -262,7 +288,7 @@ def run_mcp_agent(query: str) -> Generator[Dict[str, Any], None, None]:
             response = _call_gemini(conversation, TOOL_DECLARATIONS)
         except Exception as e:
             logger.error(f"Gemini follow-up call failed: {e}")
-            yield {"type": "error", "content": f"AI service error: {e}"}
+            yield {"type": "error", "content": _sanitize_error(str(e))}
             return
 
         tool_calls = _extract_tool_calls(response)
