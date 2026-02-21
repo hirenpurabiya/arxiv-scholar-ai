@@ -4,18 +4,20 @@
 
 Search [arXiv](https://arxiv.org/) for academic papers on any topic, get AI-powered summaries, and chat about papers with an "Explain Like I'm 10" AI tutor. Includes an MCP server and client that expose all capabilities as standardized tools, resources, and prompts.
 
+> **LLM-agnostic architecture.** Currently uses Google Gemini (free tier). The AI layer is swappable — plug in OpenAI, Anthropic, xAI, Meta Llama, AWS Bedrock, or any LLM by changing a single API call.
+
 **Live Demo:** [arxiv-scholar-ai.vercel.app](https://arxiv-scholar-ai.vercel.app)
 
 ---
 
 ## Features
 
-- **MCP Playground** -- Live AI agent demo on the landing page: type a query and watch Gemini reason, pick tools, and compose an answer in real-time ([try it](https://arxiv-scholar-ai.vercel.app))
+- **MCP Playground** -- Live AI agent demo on the landing page: type a query and watch the AI reason, pick tools, and compose an answer in real-time ([try it](https://arxiv-scholar-ai.vercel.app))
 - **Smart Search** -- Search arXiv's 2M+ papers with date filtering and sorting
-- **AI Summarization** -- Gemini-powered summaries with local extraction fallback
+- **AI Summarization** -- LLM-powered summaries with local extraction fallback
 - **Explain Like I'm 10** -- Interactive chat that explains papers in simple terms
 - **MCP Server** -- Exposes search, summarize, explain, and chat as MCP tools (stdio + SSE)
-- **MCP Client** -- CLI agent that connects to the MCP server with LLM-driven tool calling
+- **MCP Client** -- CLI agent that connects to the MCP server with AI-driven tool calling
 - **MCP Resources** -- Browse saved topics and papers via standard MCP resource URIs
 - **MCP Prompts** -- Pre-built prompt templates for research workflows
 - **PDF Links** -- Direct links to download the full paper PDF
@@ -34,14 +36,14 @@ Search [arXiv](https://arxiv.org/) for academic papers on any topic, get AI-powe
 │   (React + TS)   │     │   (Python)        │     └──────────────┘
 │                  │     │                   │
 │  MCP Playground  │SSE  │  /api/mcp-query   │     ┌──────────────┐
-│  (live agent UI) │────▶│  (MCP agent loop) │────▶│ Gemini API   │
-└──────────────────┘     │                   │     │ (reasoning)  │
+│  (live agent UI) │────▶│  (MCP agent loop) │────▶│  LLM API     │
+└──────────────────┘     │                   │     │  (reasoning) │
                          └──────────────────┘     └──────────────┘
 
 ┌──────────────────┐     ┌──────────────────┐
 │   MCP Client     │     │   MCP Server     │     Wraps the same
 │   (CLI agent     │────▶│   (FastMCP)      │────▶ backend functions
-│    + Gemini)     │     │   stdio / SSE    │     as MCP tools
+│    + LLM)        │     │   stdio / SSE    │     as MCP tools
 └──────────────────┘     └──────────────────┘
 ```
 
@@ -53,7 +55,7 @@ Search [arXiv](https://arxiv.org/) for academic papers on any topic, get AI-powe
 |------------|------------------------------------------------|
 | Frontend   | Next.js, React, TypeScript, Tailwind CSS       |
 | Backend    | Python, FastAPI, Pydantic                      |
-| AI         | Google Gemini (free tier)                       |
+| AI         | LLM-powered (currently Gemini free tier; swappable) |
 | MCP        | FastMCP, MCP SDK (stdio + SSE transports)      |
 | Data       | arXiv API via `arxiv` library                  |
 | Deployment | Vercel (frontend), Render (backend)            |
@@ -66,7 +68,7 @@ Search [arXiv](https://arxiv.org/) for academic papers on any topic, get AI-powe
 
 - Python 3.10+
 - Node.js 18+
-- A [Google API key](https://aistudio.google.com/apikey) (free — for AI summaries and chat)
+- An LLM API key (default: [Google Gemini free tier](https://aistudio.google.com/apikey); any LLM works)
 
 ### 1. Clone the repo
 
@@ -83,9 +85,9 @@ python -m venv venv
 source venv/bin/activate   # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 
-# Set your API key
+# Set your LLM API key
 cp .env.example .env
-# Edit .env and add your GOOGLE_API_KEY
+# Edit .env and add your API key (default: GOOGLE_API_KEY for Gemini free tier)
 
 # Run the server
 uvicorn main:app --reload
@@ -168,15 +170,15 @@ Type any natural language query like:
 - "Search for papers about RAG and explain the best one like I'm 10"
 - "What are the newest papers on LLM reasoning?"
 
-The AI Agent Activity panel shows every step in real-time: which tools Gemini picks, the arguments it sends, and the results that come back. Nothing is pre-recorded or simulated.
+The Thinking panel shows every step in real-time: which tools the AI picks, the arguments it sends, and the results that come back. Nothing is pre-recorded or simulated.
 
 ### How it works
 
 1. Your query hits `/api/mcp-query` (SSE endpoint)
-2. Gemini receives the query + MCP tool declarations
-3. Gemini picks which tools to call (search, summarize, explain, etc.)
+2. The LLM receives the query + MCP tool declarations
+3. The LLM picks which tools to call (search, summarize, explain, etc.)
 4. Tools execute against the real backend functions
-5. Gemini reads results and may call more tools or compose the final answer
+5. The LLM reads results and may call more tools or compose the final answer
 6. Every step streams to the browser as a Server-Sent Event
 
 ---
@@ -242,9 +244,9 @@ arxiv-scholar-ai/
 │       ├── config.py          # App configuration
 │       ├── article_finder.py  # arXiv search with date filtering
 │       ├── article_reader.py  # Article metadata retrieval
-│       ├── summarizer.py      # Gemini AI summarization + local fallback
-│       ├── chat_engine.py     # Gemini-powered interactive chat
-│       └── mcp_agent.py       # Gemini agentic loop (MCP Playground)
+│       ├── summarizer.py      # LLM-powered summarization + local fallback
+│       ├── chat_engine.py     # LLM-powered interactive chat
+│       └── mcp_agent.py       # Agentic loop with tool calling (MCP Playground)
 ├── frontend/
 │   ├── src/
 │   │   ├── app/

@@ -108,7 +108,10 @@ export default function ArticleDetail({ article, onBack }: ArticleDetailProps) {
                   Explain Like I&apos;m 10
                 </h2>
                 <button
-                  onClick={() => setShowChat(true)}
+                  onClick={() => {
+                    setShowChat(true);
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                  }}
                   className="px-5 py-2.5 bg-slate-700 text-white font-medium rounded-xl hover:bg-slate-800 transition-colors shadow-sm"
                 >
                   Explain Like I&apos;m 10

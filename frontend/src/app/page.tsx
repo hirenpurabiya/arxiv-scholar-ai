@@ -38,7 +38,7 @@ export default function Home() {
           <h2 className="text-3xl font-bold text-gray-900 mb-2">
             Discover Research Papers
           </h2>
-          <p className="text-gray-500 max-w-2xl">
+          <p className="text-gray-500">
             Search arXiv for academic papers on any topic. Get AI-powered
             summaries to quickly understand what matters.
           </p>
@@ -61,7 +61,7 @@ export default function Home() {
               {
                 step: "2",
                 title: "AI Decides",
-                desc: "Gemini analyzes your query and picks which MCP tools to use.",
+                desc: "The AI analyzes your query and picks which MCP tools to use.",
               },
               {
                 step: "3",
@@ -91,18 +91,26 @@ export default function Home() {
         </div>
 
         {/* Architecture Note */}
-        <div className="mt-8 bg-slate-50 border border-slate-200 rounded-xl p-5">
-          <h4 className="text-sm font-semibold text-slate-700 mb-2">
-            Architecture
-          </h4>
-          <p className="text-sm text-slate-600">
-            This demo uses the{" "}
-            <span className="font-semibold">Model Context Protocol (MCP)</span>{" "}
-            pattern: Gemini acts as the AI reasoning engine, MCP tool
-            declarations describe what the backend can do, and the agentic loop
-            handles tool execution and multi-turn reasoning. Responses stream via
-            Server-Sent Events (SSE) for real-time display.
-          </p>
+        <div className="mt-8 bg-slate-50 border border-slate-200 rounded-xl p-6">
+          <div className="flex items-start gap-4">
+            <div className="w-10 h-10 rounded-lg bg-slate-200 flex items-center justify-center shrink-0">
+              <svg className="w-5 h-5 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6.429 9.75L2.25 12l4.179 2.25m0-4.5l5.571 3 5.571-3m-11.142 0L2.25 7.5 12 2.25l9.75 5.25-4.179 2.25m0 0L12 12.75 6.429 9.75m11.142 0l4.179 2.25-9.75 5.25-9.75-5.25 4.179-2.25" />
+              </svg>
+            </div>
+            <div>
+              <h4 className="text-sm font-semibold text-slate-800 mb-1.5">
+                Built with Model Context Protocol (MCP)
+              </h4>
+              <p className="text-sm text-slate-600 leading-relaxed">
+                The LLM acts as the reasoning engine, MCP tool declarations
+                describe what the backend can do, and the agentic loop handles
+                tool execution and multi-turn reasoning. Responses stream via
+                Server-Sent Events (SSE) for real-time display. The AI layer is
+                model-agnostic — swap in any LLM provider.
+              </p>
+            </div>
+          </div>
         </div>
       </main>
 
