@@ -215,23 +215,23 @@ export default function MCPPlayground() {
   const handleBack = () => setSelectedArticle(null);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       {/* Input */}
       {!selectedArticle && (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 sm:p-5 min-w-0">
           <form
             onSubmit={(e) => {
               e.preventDefault();
               handleSubmit();
             }}
-            className="flex gap-3"
+            className="flex flex-col sm:flex-row gap-3 min-w-0"
           >
             <input
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Ask anything about research papers..."
-              className="flex-1 px-4 py-3 rounded-lg border border-gray-200 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+              className="flex-1 min-w-0 px-4 py-3 rounded-lg border border-gray-200 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
               disabled={isStreaming}
             />
             {isStreaming ? (
@@ -280,7 +280,7 @@ export default function MCPPlayground() {
 
       {/* Thinking Panel (full width) */}
       {!selectedArticle && (steps.length > 0 || error) && (
-        <div className="bg-slate-900 rounded-xl border border-slate-700 overflow-hidden flex flex-col">
+        <div className="bg-slate-900 rounded-xl border border-slate-700 overflow-hidden flex flex-col min-w-0">
           <div className="px-4 py-3 border-b border-slate-700 flex items-center gap-2 shrink-0">
             <div
               className={`w-2 h-2 rounded-full ${isStreaming ? "bg-green-400 animate-pulse" : "bg-slate-500"}`}
@@ -381,7 +381,7 @@ export default function MCPPlayground() {
 
       {/* Paper Cards */}
       {!selectedArticle && papers.length > 0 && (
-        <div>
+        <div className="min-w-0">
           <p className="text-sm text-gray-500 mb-4">
             Found {papers.length} paper{papers.length !== 1 ? "s" : ""}
           </p>

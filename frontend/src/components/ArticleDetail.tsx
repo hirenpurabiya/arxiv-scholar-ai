@@ -40,10 +40,10 @@ export default function ArticleDetail({ article, onBack }: ArticleDetailProps) {
         <span>&larr;</span> Back to results
       </button>
 
-      <div className="flex gap-6">
-        {/* Left side: Article details */}
-        <div className={`${showChat ? "flex-1" : "w-full"} transition-all`}>
-          <div className="bg-white rounded-2xl border border-gray-200 p-8 shadow-sm">
+      <div className="flex flex-col lg:flex-row gap-6 min-w-0">
+        {/* Article details (top on mobile, left on desktop) */}
+        <div className={`${showChat ? "lg:flex-1" : "w-full"} transition-all min-w-0`}>
+          <div className="bg-white rounded-2xl border border-gray-200 p-4 sm:p-6 lg:p-8 shadow-sm">
             <div className="flex items-start justify-between gap-4 mb-4">
               <span className="text-sm font-medium text-blue-600 bg-blue-50 px-3 py-1 rounded-full">
                 {article.id}
@@ -137,9 +137,9 @@ export default function ArticleDetail({ article, onBack }: ArticleDetailProps) {
           </div>
         </div>
 
-        {/* Right side: Chat panel */}
+        {/* Chat panel (below article on mobile, right on desktop) */}
         {showChat && (
-          <div className="w-96 flex-shrink-0">
+          <div className="w-full lg:w-96 flex-shrink-0 min-w-0">
             <div className="sticky top-4">
               <ELI10Chat
                 articleId={article.id}
