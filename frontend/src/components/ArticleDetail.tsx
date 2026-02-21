@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Article } from "@/lib/types";
-import { summarizeArticle } from "@/lib/api";
+// import { summarizeArticle } from "@/lib/api";
 import ELI10Chat from "./ELI10Chat";
 
 interface ArticleDetailProps {
@@ -11,25 +11,25 @@ interface ArticleDetailProps {
 }
 
 export default function ArticleDetail({ article, onBack }: ArticleDetailProps) {
-  const [aiSummary, setAiSummary] = useState<string | null>(null);
-  const [isLoadingSummary, setIsLoadingSummary] = useState(false);
-  const [summaryError, setSummaryError] = useState<string | null>(null);
   const [showChat, setShowChat] = useState(false);
-
-  const handleSummarize = async () => {
-    setIsLoadingSummary(true);
-    setSummaryError(null);
-    try {
-      const result = await summarizeArticle(article.id);
-      setAiSummary(result.ai_summary);
-    } catch (err) {
-      setSummaryError(
-        err instanceof Error ? err.message : "Failed to generate summary"
-      );
-    } finally {
-      setIsLoadingSummary(false);
-    }
-  };
+  // Quick Summary - hidden (was often same as abstract)
+  // const [aiSummary, setAiSummary] = useState<string | null>(null);
+  // const [isLoadingSummary, setIsLoadingSummary] = useState(false);
+  // const [summaryError, setSummaryError] = useState<string | null>(null);
+  // const handleSummarize = async () => {
+  //   setIsLoadingSummary(true);
+  //   setSummaryError(null);
+  //   try {
+  //     const result = await summarizeArticle(article.id);
+  //     setAiSummary(result.ai_summary);
+  //   } catch (err) {
+  //     setSummaryError(
+  //       err instanceof Error ? err.message : "Failed to generate summary"
+  //     );
+  //   } finally {
+  //     setIsLoadingSummary(false);
+  //   }
+  // };
 
   return (
     <div className="w-full">
@@ -77,7 +77,7 @@ export default function ArticleDetail({ article, onBack }: ArticleDetailProps) {
               </p>
             </div>
 
-            {/* Quick Summary */}
+            {/* Quick Summary - hidden (was often same as abstract)
             <div className="mb-6">
               <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
                 Quick Summary
@@ -100,6 +100,7 @@ export default function ArticleDetail({ article, onBack }: ArticleDetailProps) {
                 </button>
               )}
             </div>
+            */}
 
             {/* Explain Like I'm 10 - Button to open chat */}
             {!showChat && (
