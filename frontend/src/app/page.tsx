@@ -22,6 +22,7 @@ function HomeContent() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchedTopic, setSearchedTopic] = useState<string>("");
+  const [currentFilters, setCurrentFilters] = useState<SearchFilters>(DEFAULT_FILTERS);
 
   // Parse filters from URL on mount
   const getFiltersFromUrl = useCallback((): SearchFilters => {
@@ -58,6 +59,7 @@ function HomeContent() {
     setError(null);
     setSelectedArticle(null);
     setSearchedTopic(topic);
+    setCurrentFilters(filters);
 
     // Update URL with search params
     updateUrl(topic, filters);
@@ -178,7 +180,30 @@ function HomeContent() {
         {!selectedArticle && !isLoading && articles.length > 0 && (
           <div className="w-full">
             <p className="text-sm text-gray-500 mb-4">
-              Found {articles.length} articles for &quot;{searchedTopic}&quot;
+              {(() => {
+                const dates = articles
+                  .map((a) => a.published)
+                  .filter(Boolean)
+                  .sort();
+                const formatPubDate = (iso: string) => {
+                  const d = new Date(iso + "T00:00:00");
+                  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+                };
+                const dateRange =
+                  dates.length >= 2 && dates[0] !== dates[dates.length - 1]
+                    ? ` (${formatPubDate(dates[0])} \u2013 ${formatPubDate(dates[dates.length - 1])})`
+                    : dates.length === 1
+                      ? ` (${formatPubDate(dates[0])})`
+                      : "";
+                const presetLabels: Record<string, string> = {
+                  week: " from Last Week",
+                  month: " from Last Month",
+                  year: " from Last Year",
+                  custom: " in custom date range",
+                };
+                const filterLabel = presetLabels[currentFilters.datePreset] || "";
+                return `Found ${articles.length} article${articles.length !== 1 ? "s" : ""} for \u201C${searchedTopic}\u201D${filterLabel}${dateRange}`;
+              })()}
             </p>
             <div className="flex flex-col gap-4">
               {articles.map((article) => (
