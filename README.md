@@ -122,7 +122,7 @@ python mcp_remote.py
 ```bash
 cd backend
 python mcp_client.py
-# Then type: "Find papers about transformers" and watch it call tools!
+# Then type: "Find papers about transformers" and watch it call tools
 ```
 
 ---
@@ -135,7 +135,7 @@ The MCP layer wraps the existing backend functions as standardized tools that an
 
 | Tool               | Description                                    |
 |--------------------|------------------------------------------------|
-| `search_papers`    | Search arXiv with topic, date, and sort filters |
+| `search_arxiv`     | Search arXiv with topic, date, and sort filters |
 | `get_paper`        | Get metadata for a specific paper by ID        |
 | `summarize_paper`  | AI-powered summary of a paper                  |
 | `explain_paper`    | Explain a paper like you're 10 years old       |

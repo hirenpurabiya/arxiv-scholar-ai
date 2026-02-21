@@ -29,7 +29,7 @@ mcp = FastMCP("arxiv-scholar-ai")
 # --------------- MCP Tools ---------------
 
 @mcp.tool()
-def search_papers(
+def search_arxiv(
     topic: str,
     max_results: int = 5,
     sort_by: str = "relevance",
@@ -156,7 +156,7 @@ def get_topics_resource() -> str:
     """List all research topics that have been searched and saved."""
     topics = list_all_topics()
     if not topics:
-        return "No topics saved yet. Use the search_papers tool to find papers first."
+        return "No topics saved yet. Use the search_arxiv tool to find papers first."
 
     lines = ["# Saved Research Topics\n"]
     for topic in topics:
@@ -211,7 +211,7 @@ def get_paper_resource(article_id: str) -> str:
 def research_summary(topic: str, num_papers: int = 5) -> str:
     """Generate a research summary by searching and summarizing papers on a topic."""
     return (
-        f"Search for {num_papers} academic papers about '{topic}' using the search_papers tool. "
+        f"Search for {num_papers} academic papers about '{topic}' using the search_arxiv tool. "
         f"Then summarize each paper using summarize_paper. "
         f"Finally, provide an overview of the research landscape:\n"
         f"- Common themes across papers\n"
@@ -225,7 +225,7 @@ def research_summary(topic: str, num_papers: int = 5) -> str:
 def explain_like_ten(topic: str) -> str:
     """Search for papers on a topic and explain them simply."""
     return (
-        f"Search for papers about '{topic}' using search_papers. "
+        f"Search for papers about '{topic}' using search_arxiv. "
         f"Pick the most relevant paper and use explain_paper to get a simple explanation. "
         f"Then add your own simple explanation of why this research matters, "
         f"using everyday examples a 10-year-old would understand."
