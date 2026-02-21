@@ -17,17 +17,19 @@ export default function Home() {
               <span>Portfolio</span>
             </a>
             <div className="h-6 w-px bg-gray-200" />
-            <div className="w-9 h-9 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-sm">AS</span>
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-gray-900">
-                ArXiv Scholar AI
-              </h1>
-              <p className="text-xs text-gray-500">
-                AI-powered research paper discovery
-              </p>
-            </div>
+            <a href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+              <div className="w-9 h-9 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold text-sm">AS</span>
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-gray-900">
+                  ArXiv Scholar AI
+                </h1>
+                <p className="text-xs text-gray-500">
+                  AI-powered research paper discovery
+                </p>
+              </div>
+            </a>
           </div>
         </div>
       </header>
