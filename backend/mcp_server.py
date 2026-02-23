@@ -11,8 +11,6 @@ Run with MCP inspector:  npx @modelcontextprotocol/inspector python mcp_server.p
 
 import json
 import logging
-from typing import Optional
-
 from mcp.server.fastmcp import FastMCP
 
 from src.article_finder import find_articles
@@ -33,8 +31,6 @@ def search_arxiv(
     topic: str,
     max_results: int = 5,
     sort_by: str = "relevance",
-    date_from: Optional[str] = None,
-    date_to: Optional[str] = None,
 ) -> str:
     """
     Search arXiv for academic papers on a given topic.
@@ -43,8 +39,6 @@ def search_arxiv(
         topic: Research topic to search for (e.g. "transformer architecture")
         max_results: Number of papers to return (1-20, default 5)
         sort_by: Sort order - "relevance", "date", or "updated"
-        date_from: Optional start date filter in YYYYMMDD format
-        date_to: Optional end date filter in YYYYMMDD format
 
     Returns:
         JSON string with list of papers found
@@ -55,8 +49,6 @@ def search_arxiv(
             topic=topic,
             max_results=max_results,
             sort_by=sort_by,
-            date_from=date_from,
-            date_to=date_to,
         )
     except Exception as e:
         if "429" in str(e):
