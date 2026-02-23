@@ -42,7 +42,9 @@ export default function Home() {
           </h2>
           <p className="text-gray-500">
             Search arXiv for academic papers on any topic. Get AI-powered
-            summaries to quickly understand what matters.
+            summaries to quickly understand what matters. This demo is an{" "}
+            <strong className="text-gray-700">MCP client</strong> — it talks to
+            an MCP server over SSE; the AI picks tools and streams reasoning in real time.
           </p>
         </div>
 

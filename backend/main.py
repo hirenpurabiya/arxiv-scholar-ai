@@ -1,10 +1,10 @@
 """
 ArXiv Scholar AI - FastAPI Backend
 Provides REST API endpoints for searching, reading, and summarizing arXiv papers.
-Includes an SSE-streaming MCP agent endpoint for the MCP Playground.
+Mounts the MCP server (SSE transport) and includes an MCP agent that connects
+to it as a real MCP client for the MCP Playground.
 """
 
-import asyncio
 import json
 import os
 import logging
@@ -22,6 +22,7 @@ from src.chat_engine import chat_about_article
 from src.mcp_agent import run_mcp_agent
 from src.topic_suggester import suggest_topic
 from src.config import DEFAULT_MAX_RESULTS
+from mcp_server import mcp as mcp_server_instance
 from src.security import (
     check_chat_rate_limit,
     check_search_rate_limit,
@@ -58,6 +59,10 @@ app.add_middleware(
     allow_methods=["GET", "POST"],
     allow_headers=["Content-Type"],
 )
+
+# Mount the MCP server's SSE transport at /mcp.
+# Any MCP client (Claude Desktop, Cursor, our own agent) can connect to /mcp/sse.
+app.mount("/mcp", mcp_server_instance.sse_app())
 
 
 # --- Response Models ---
@@ -284,20 +289,15 @@ async def get_topic_articles(request: Request, topic_slug: str):
 async def mcp_query(request: Request, q: str = Query(..., description="Natural language query for the MCP agent")):
     """
     Stream MCP agent reasoning steps via Server-Sent Events.
-    The agent uses Gemini to decide which tools to call, executes them,
-    and streams each reasoning step to the client in real-time.
+    The agent connects to the MCP server as an SSE client, discovers tools
+    dynamically, and uses Gemini to decide which MCP tools to call.
+    Each reasoning step is streamed to the frontend in real-time.
     """
     check_search_rate_limit(request)
 
     async def event_generator():
-        loop = asyncio.get_event_loop()
-        gen = run_mcp_agent(q)
-        while True:
-            try:
-                step = await loop.run_in_executor(None, next, gen)
-                yield json.dumps(step)
-            except StopIteration:
-                break
+        async for step in run_mcp_agent(q):
+            yield json.dumps(step)
 
     return EventSourceResponse(event_generator())
 

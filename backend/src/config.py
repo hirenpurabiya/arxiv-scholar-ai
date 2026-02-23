@@ -28,3 +28,6 @@ CLAUDE_MODEL = "claude-3-5-sonnet-20241022"
 
 # Maximum tokens for Claude's response
 MAX_TOKENS = 1024
+
+# MCP server URL for SSE transport (agent connects here as an MCP client)
+MCP_SERVER_URL = os.getenv("MCP_SERVER_URL", "http://localhost:8000/mcp/sse")

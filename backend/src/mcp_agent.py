@@ -1,22 +1,23 @@
 """
 MCP Agent for ArXiv Scholar AI.
-Runs an agentic loop: sends user queries to Gemini with MCP tool declarations,
-executes tool calls, and yields reasoning steps for real-time streaming.
+
+Connects to the MCP server as a real SSE client, discovers tools dynamically,
+and runs an agentic loop: Gemini decides which MCP tools to call,
+the agent executes them via the MCP protocol, and yields reasoning steps
+for real-time streaming to the frontend.
 """
 
 import json
 import logging
 import re
 import time
-from typing import Generator, Dict, Any
+from typing import AsyncGenerator, Dict, Any
 
 import requests
+from mcp import ClientSession
+from mcp.client.sse import sse_client
 
-from .config import GOOGLE_API_KEY
-from .article_finder import find_articles
-from .article_reader import get_article_details
-from .summarizer import summarize_article, explain_like_ten
-from .chat_engine import chat_about_article
+from .config import GOOGLE_API_KEY, MCP_SERVER_URL
 
 logger = logging.getLogger(__name__)
 
@@ -30,93 +31,41 @@ def _sanitize_error(msg: str) -> str:
     msg = re.sub(r'https?://\S+', '[API endpoint]', msg)
     return msg
 
-TOOL_DECLARATIONS = [
-    {
-        "name": "search_arxiv",
-        "description": (
-            "Search arXiv for academic papers on a given topic. "
-            "Returns paper IDs, titles, authors, and publication dates."
-        ),
-        "parameters": {
-            "type": "OBJECT",
-            "properties": {
-                "topic": {
-                    "type": "STRING",
-                    "description": "Research topic to search for (e.g. 'transformer architecture')",
-                },
-                "max_results": {
-                    "type": "INTEGER",
-                    "description": "Number of papers to return (1-20, default 5)",
-                },
-                "sort_by": {
-                    "type": "STRING",
-                    "description": "Sort order: 'relevance', 'date', or 'updated'",
-                },
+
+def _mcp_tools_to_gemini(mcp_tools: list) -> list:
+    """Convert MCP tool schemas to Gemini function declarations."""
+    type_map = {
+        "STRING": "STRING",
+        "INTEGER": "INTEGER",
+        "NUMBER": "NUMBER",
+        "BOOLEAN": "BOOLEAN",
+        "ARRAY": "ARRAY",
+        "OBJECT": "OBJECT",
+    }
+    declarations = []
+    for tool in mcp_tools:
+        schema = tool.inputSchema or {}
+        properties = schema.get("properties", {})
+        required = schema.get("required", [])
+
+        gemini_props = {}
+        for name, prop in properties.items():
+            prop_type = prop.get("type", "string").upper()
+            gemini_props[name] = {
+                "type": type_map.get(prop_type, "STRING"),
+                "description": prop.get("description", ""),
+            }
+
+        declarations.append({
+            "name": tool.name,
+            "description": tool.description or "",
+            "parameters": {
+                "type": "OBJECT",
+                "properties": gemini_props,
+                "required": required,
             },
-            "required": ["topic"],
-        },
-    },
-    {
-        "name": "get_paper",
-        "description": "Get full metadata for a specific arXiv paper by its ID.",
-        "parameters": {
-            "type": "OBJECT",
-            "properties": {
-                "article_id": {
-                    "type": "STRING",
-                    "description": "The arXiv short ID (e.g. '2401.12345v2')",
-                },
-            },
-            "required": ["article_id"],
-        },
-    },
-    {
-        "name": "summarize_paper",
-        "description": "Generate a concise AI-powered summary of a paper's abstract.",
-        "parameters": {
-            "type": "OBJECT",
-            "properties": {
-                "article_id": {
-                    "type": "STRING",
-                    "description": "The arXiv short ID of the paper to summarize",
-                },
-            },
-            "required": ["article_id"],
-        },
-    },
-    {
-        "name": "explain_paper",
-        "description": "Explain a paper in simple terms a 10-year-old could understand.",
-        "parameters": {
-            "type": "OBJECT",
-            "properties": {
-                "article_id": {
-                    "type": "STRING",
-                    "description": "The arXiv short ID of the paper to explain",
-                },
-            },
-            "required": ["article_id"],
-        },
-    },
-    {
-        "name": "chat_about_paper",
-        "description": "Ask a question about a specific paper and get a simple answer.",
-        "parameters": {
-            "type": "OBJECT",
-            "properties": {
-                "article_id": {
-                    "type": "STRING",
-                    "description": "The arXiv short ID of the paper",
-                },
-                "message": {
-                    "type": "STRING",
-                    "description": "The question to ask about the paper",
-                },
-            },
-            "required": ["article_id", "message"],
-        },
-    },
-]
+        })
+    return declarations
 
 
 def _call_gemini(messages: list, tools: list) -> dict:
@@ -177,126 +126,100 @@ def _extract_tool_calls(response: dict) -> list:
     return calls
 
 
-def _execute_tool(name: str, args: dict) -> str:
-    """Execute a tool by name, calling the underlying backend functions directly."""
-    if name == "search_arxiv":
-        articles = find_articles(
-            topic=args["topic"],
-            max_results=min(20, max(1, int(args.get("max_results", 5)))),
-            sort_by=args.get("sort_by", "relevance"),
-        )
-        if not articles:
-            return json.dumps({"count": 0, "message": f"No papers found for '{args['topic']}'."})
-        results = [
-            {"id": a["id"], "title": a["title"], "authors": a["authors"][:3], "published": a["published"]}
-            for a in articles
-        ]
-        return json.dumps({"count": len(results), "papers": results}, indent=2)
-
-    if name == "get_paper":
-        article = get_article_details(args["article_id"])
-        if not article:
-            return json.dumps({"error": f"Paper '{args['article_id']}' not found. Try searching first."})
-        return json.dumps(article, indent=2)
-
-    if name == "summarize_paper":
-        article = get_article_details(args["article_id"])
-        if not article:
-            return f"Paper '{args['article_id']}' not found."
-        return summarize_article(article) or "Could not generate summary."
-
-    if name == "explain_paper":
-        article = get_article_details(args["article_id"])
-        if not article:
-            return f"Paper '{args['article_id']}' not found."
-        return explain_like_ten(article) or "Could not generate explanation."
-
-    if name == "chat_about_paper":
-        article = get_article_details(args["article_id"])
-        if not article:
-            return f"Paper '{args['article_id']}' not found."
-        result = chat_about_article(article, args["message"], history=[], provider="gemini")
-        return result.get("response", "Could not get a response.")
-
-    return f"Unknown tool: {name}"
-
-
-def _truncate(text: str, limit: int = 500) -> str:
-    """Truncate long text for the streaming display."""
-    if len(text) <= limit:
-        return text
-    return text[:limit] + "..."
-
-
-def run_mcp_agent(query: str) -> Generator[Dict[str, Any], None, None]:
+async def run_mcp_agent(query: str) -> AsyncGenerator[Dict[str, Any], None]:
     """
     Run the MCP agentic loop for a user query.
-    Yields reasoning step dicts for SSE streaming to the frontend.
+
+    Connects to the MCP server via SSE, discovers tools dynamically,
+    and executes them through the MCP protocol. Yields reasoning step
+    dicts for SSE streaming to the frontend.
+
     Each step: {"type": "thinking"|"tool_call"|"tool_result"|"answer"|"error", "content": ...}
     """
     if not GOOGLE_API_KEY:
         yield {"type": "error", "content": "Google API key not configured."}
         return
 
-    yield {"type": "thinking", "content": "Understanding your query..."}
-
-    conversation = [{"role": "user", "parts": [{"text": query}]}]
+    yield {"type": "thinking", "content": "Connecting to MCP server..."}
 
     try:
-        response = _call_gemini(conversation, TOOL_DECLARATIONS)
-    except Exception as e:
-        logger.error(f"Gemini initial call failed: {e}")
-        yield {"type": "error", "content": _sanitize_error(str(e))}
-        return
+        async with sse_client(MCP_SERVER_URL) as (read_stream, write_stream):
+            async with ClientSession(read_stream, write_stream) as session:
+                await session.initialize()
 
-    tool_calls = _extract_tool_calls(response)
-    max_iterations = 10
-    iteration = 0
+                # Discover tools dynamically from the MCP server
+                tools_result = await session.list_tools()
+                mcp_tools = tools_result.tools
+                gemini_declarations = _mcp_tools_to_gemini(mcp_tools)
 
-    while tool_calls and iteration < max_iterations:
-        iteration += 1
-        conversation.append(response["candidates"][0]["content"])
-
-        function_responses = []
-        for fc in tool_calls:
-            fn_name = fc["name"]
-            fn_args = fc.get("args", {})
-
-            yield {"type": "tool_call", "content": {"name": fn_name, "args": fn_args}}
-
-            try:
-                result_text = _execute_tool(fn_name, fn_args)
-            except Exception as e:
-                logger.error(f"Tool {fn_name} error: {e}")
-                result_text = f"Error executing {fn_name}: {e}"
-
-            yield {
-                "type": "tool_result",
-                "content": {"name": fn_name, "result": result_text},
-            }
-
-            function_responses.append({
-                "functionResponse": {
-                    "name": fn_name,
-                    "response": {"result": result_text},
+                tool_names = [t.name for t in mcp_tools]
+                yield {
+                    "type": "thinking",
+                    "content": f"Connected to MCP server. Discovered {len(mcp_tools)} tools: {', '.join(tool_names)}. Understanding your query...",
                 }
-            })
 
-        conversation.append({"role": "function", "parts": function_responses})
+                conversation = [{"role": "user", "parts": [{"text": query}]}]
 
-        try:
-            response = _call_gemini(conversation, TOOL_DECLARATIONS)
-        except Exception as e:
-            logger.error(f"Gemini follow-up call failed: {e}")
-            yield {"type": "error", "content": _sanitize_error(str(e))}
-            return
+                try:
+                    response = _call_gemini(conversation, gemini_declarations)
+                except Exception as e:
+                    logger.error(f"Gemini initial call failed: {e}")
+                    yield {"type": "error", "content": _sanitize_error(str(e))}
+                    return
 
-        tool_calls = _extract_tool_calls(response)
+                tool_calls = _extract_tool_calls(response)
+                max_iterations = 10
+                iteration = 0
 
-    answer = _extract_text(response)
-    if answer:
-        yield {"type": "answer", "content": answer}
-    else:
-        yield {"type": "error", "content": "No response from AI."}
+                while tool_calls and iteration < max_iterations:
+                    iteration += 1
+                    conversation.append(response["candidates"][0]["content"])
 
-    yield {"type": "done", "content": ""}
+                    function_responses = []
+                    for fc in tool_calls:
+                        fn_name = fc["name"]
+                        fn_args = fc.get("args", {})
+
+                        yield {"type": "tool_call", "content": {"name": fn_name, "args": fn_args}}
+
+                        try:
+                            result = await session.call_tool(fn_name, fn_args)
+                            result_text = result.content[0].text if result.content else "No result."
+                        except Exception as e:
+                            logger.error(f"MCP tool {fn_name} error: {e}")
+                            result_text = f"Error executing {fn_name}: {e}"
+
+                        yield {
+                            "type": "tool_result",
+                            "content": {"name": fn_name, "result": result_text},
+                        }
+
+                        function_responses.append({
+                            "functionResponse": {
+                                "name": fn_name,
+                                "response": {"result": result_text},
+                            }
+                        })
+
+                    conversation.append({"role": "function", "parts": function_responses})
+
+                    try:
+                        response = _call_gemini(conversation, gemini_declarations)
+                    except Exception as e:
+                        logger.error(f"Gemini follow-up call failed: {e}")
+                        yield {"type": "error", "content": _sanitize_error(str(e))}
+                        return
+
+                    tool_calls = _extract_tool_calls(response)
+
+                answer = _extract_text(response)
+                if answer:
+                    yield {"type": "answer", "content": answer}
+                else:
+                    yield {"type": "error", "content": "No response from AI."}
+
+                yield {"type": "done", "content": ""}
+
+    except Exception as e:
+        logger.error(f"MCP connection failed: {e}")
+        yield {"type": "error", "content": f"Could not connect to MCP server: {_sanitize_error(str(e))}"}

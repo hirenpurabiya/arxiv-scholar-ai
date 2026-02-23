@@ -27,11 +27,14 @@ node_modules/
 out/
 .vercel
 
-# Cursor config (private)
+# Cursor / Claude config (private)
 .cursorrules
+cursorrules.md
+CLAUDE.md
 
 # Private docs (not for public)
 docs/arxivscholarailinkedinpost.md
+docs/portfolio-and-linkedin-copy.md
 docs/codementor-ai-roadmap.md
 docs/arxiv-scholar-ai-roadmap.md
 
