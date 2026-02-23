@@ -21,8 +21,9 @@ from .config import GOOGLE_API_KEY, MCP_SERVER_URL
 
 logger = logging.getLogger(__name__)
 
-AGENT_MODELS = ["gemini-2.0-flash-lite", "gemini-2.0-flash", "gemini-2.5-flash"]
+AGENT_MODEL = "gemini-2.0-flash-lite"
 API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
+MAX_TOOL_RESULT_CHARS = 3000
 
 
 def _sanitize_error(msg: str) -> str:
@@ -71,8 +72,8 @@ def _mcp_tools_to_gemini(mcp_tools: list) -> list:
 def _call_gemini(messages: list, tools: list) -> dict:
     """
     Call Gemini API with function declarations.
-    Tries multiple models in order -- if one hits rate limits, falls back to the next.
-    If all models are busy, waits and retries the full rotation once more.
+    Uses a single model (gemini-2.0-flash-lite, 30 RPM free tier).
+    Retries with backoff on rate limits.
     """
     payload: dict = {
         "systemInstruction": {
@@ -88,40 +89,40 @@ def _call_gemini(messages: list, tools: list) -> dict:
         "contents": messages,
         "tools": [{"functionDeclarations": tools}],
     }
-    max_retries = 2
+    payload_size = len(json.dumps(payload))
+    logger.info(f"Gemini payload: {payload_size} chars, model: {AGENT_MODEL}")
+
+    url = f"{API_BASE}/{AGENT_MODEL}:generateContent?key={GOOGLE_API_KEY}"
+    max_retries = 3
     last_error = None
+
     for attempt in range(max_retries):
-        for model in AGENT_MODELS:
-            url = f"{API_BASE}/{model}:generateContent?key={GOOGLE_API_KEY}"
-            try:
-                resp = requests.post(url, json=payload, timeout=30)
-                if resp.status_code == 429:
-                    logger.warning(f"Rate limited on {model}, trying next model...")
-                    last_error = f"Rate limited on {model}"
-                    time.sleep(1)
-                    continue
-                if resp.status_code != 200:
-                    body = resp.text[:300]
-                    logger.warning(f"{model} returned {resp.status_code}: {body}")
-                    last_error = f"{model} returned {resp.status_code}"
-                    continue
-                return resp.json()
-            except requests.exceptions.Timeout:
-                last_error = f"Timeout calling {model}"
-                logger.warning(last_error)
+        try:
+            resp = requests.post(url, json=payload, timeout=30)
+            if resp.status_code == 429:
+                wait = 5 * (attempt + 1)
+                logger.warning(f"Rate limited on {AGENT_MODEL}, waiting {wait}s (attempt {attempt + 1}/{max_retries})")
+                last_error = f"Rate limited on {AGENT_MODEL}"
+                time.sleep(wait)
                 continue
-            except Exception as e:
-                last_error = str(e)
-                logger.warning(f"Error calling {model}: {e}")
-                continue
-        # All models failed this pass — wait before retrying
-        if attempt < max_retries - 1:
-            logger.warning(f"All models busy, waiting 5s before retry (attempt {attempt + 1}/{max_retries})")
-            time.sleep(5)
+            if resp.status_code != 200:
+                body = resp.text[:300]
+                logger.warning(f"{AGENT_MODEL} returned {resp.status_code}: {body}")
+                last_error = f"{AGENT_MODEL} returned {resp.status_code}"
+                break
+            return resp.json()
+        except requests.exceptions.Timeout:
+            last_error = f"Timeout calling {AGENT_MODEL}"
+            logger.warning(last_error)
+            break
+        except Exception as e:
+            last_error = str(e)
+            logger.warning(f"Error calling {AGENT_MODEL}: {e}")
+            break
 
     sanitized = _sanitize_error(last_error or "Unknown error")
     raise RuntimeError(
-        f"All Gemini models are busy ({sanitized}). Please wait about 60 seconds and try again."
+        f"Gemini is busy ({sanitized}). Please wait about 60 seconds and try again."
     )
 
 
@@ -209,6 +210,8 @@ async def run_mcp_agent(query: str) -> AsyncGenerator[Dict[str, Any], None]:
                         try:
                             result = await session.call_tool(fn_name, fn_args)
                             result_text = result.content[0].text if result.content else "No result."
+                            if len(result_text) > MAX_TOOL_RESULT_CHARS:
+                                result_text = result_text[:MAX_TOOL_RESULT_CHARS] + "\n...[truncated]"
                         except Exception as e:
                             logger.error(f"MCP tool {fn_name} error: {e}")
                             result_text = f"Error executing {fn_name}: {e}"
