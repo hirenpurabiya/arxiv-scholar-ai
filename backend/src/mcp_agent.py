@@ -75,6 +75,16 @@ def _call_gemini(messages: list, tools: list) -> dict:
     If all models are busy, waits and retries the full rotation once more.
     """
     payload: dict = {
+        "systemInstruction": {
+            "parts": [{
+                "text": (
+                    "You are ArXiv Scholar AI, a research assistant that helps users "
+                    "explore academic papers from arXiv. You MUST use the available tools "
+                    "to answer every question. Always call search_arxiv first to find papers. "
+                    "Never answer from memory alone — search first, then summarize or explain."
+                )
+            }]
+        },
         "contents": messages,
         "tools": [{"functionDeclarations": tools}],
     }
