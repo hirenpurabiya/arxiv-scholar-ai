@@ -43,7 +43,7 @@ def search_arxiv(
     Returns:
         JSON string with list of papers found
     """
-    max_results = max(5, min(20, max_results))
+    max_results = max(1, min(20, max_results))
     try:
         articles = find_articles(
             topic=topic,
