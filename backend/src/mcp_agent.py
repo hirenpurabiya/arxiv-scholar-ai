@@ -88,17 +88,17 @@ def _call_gemini(messages: list, tools: list) -> dict:
         "contents": messages,
         "tools": [{"functionDeclarations": tools}],
     }
-    max_retries = 3
+    max_retries = 2
     last_error = None
     for attempt in range(max_retries):
         for model in AGENT_MODELS:
             url = f"{API_BASE}/{model}:generateContent?key={GOOGLE_API_KEY}"
             try:
-                resp = requests.post(url, json=payload, timeout=60)
+                resp = requests.post(url, json=payload, timeout=30)
                 if resp.status_code == 429:
                     logger.warning(f"Rate limited on {model}, trying next model...")
                     last_error = f"Rate limited on {model}"
-                    time.sleep(2)
+                    time.sleep(1)
                     continue
                 resp.raise_for_status()
                 return resp.json()
@@ -110,11 +110,10 @@ def _call_gemini(messages: list, tools: list) -> dict:
                 last_error = str(e)
                 logger.warning(f"Error calling {model}: {e}")
                 continue
-        # All models failed this pass — wait longer before retrying
+        # All models failed this pass — wait before retrying
         if attempt < max_retries - 1:
-            wait = 10 * (attempt + 1)
-            logger.warning(f"All models busy, waiting {wait}s before retry (attempt {attempt + 1}/{max_retries})")
-            time.sleep(wait)
+            logger.warning(f"All models busy, waiting 5s before retry (attempt {attempt + 1}/{max_retries})")
+            time.sleep(5)
 
     raise RuntimeError(
         "All Gemini models are busy. Please wait about 60 seconds and try again."
