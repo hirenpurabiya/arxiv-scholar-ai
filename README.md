@@ -191,7 +191,7 @@ The Thinking panel shows every step in real-time: which tools the AI picks, the 
 
 - **System instruction** — Gemini receives a structured prompt that forces tool usage, preventing it from answering from memory
 - **MCP prompt templates** — `research_summary` and `explain_like_ten` are reusable prompt templates discoverable via the MCP protocol
-- **Model fallback** — rotates through 3 Gemini models (flash-lite → 1.5-flash → 2.0-flash) with automatic retry on rate limits
+- **Retry with backoff** — automatic retry with increasing delay (5s, 10s, 15s) when Gemini rate limits hit
 - **Rate limit detection** — agent stops the agentic loop immediately when arXiv or Gemini signals rate limiting, instead of retrying and compounding the problem
 - **arXiv retry with backoff** — handles transient 429 errors with exponential delay (5s, 10s, 15s)
 
