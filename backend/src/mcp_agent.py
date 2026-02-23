@@ -72,31 +72,38 @@ def _call_gemini(messages: list, tools: list) -> dict:
     """
     Call Gemini API with function declarations.
     Tries multiple models in order -- if one hits rate limits, falls back to the next.
+    If all models are busy, waits and retries the full rotation once more.
     """
     payload: dict = {
         "contents": messages,
         "tools": [{"functionDeclarations": tools}],
     }
+    max_retries = 2
     last_error = None
-    for model in AGENT_MODELS:
-        url = f"{API_BASE}/{model}:generateContent?key={GOOGLE_API_KEY}"
-        try:
-            resp = requests.post(url, json=payload, timeout=60)
-            if resp.status_code == 429:
-                logger.warning(f"Rate limited on {model}, trying next model...")
-                last_error = f"Rate limited on {model}"
-                time.sleep(1)
+    for attempt in range(max_retries):
+        for model in AGENT_MODELS:
+            url = f"{API_BASE}/{model}:generateContent?key={GOOGLE_API_KEY}"
+            try:
+                resp = requests.post(url, json=payload, timeout=60)
+                if resp.status_code == 429:
+                    logger.warning(f"Rate limited on {model}, trying next model...")
+                    last_error = f"Rate limited on {model}"
+                    time.sleep(1)
+                    continue
+                resp.raise_for_status()
+                return resp.json()
+            except requests.exceptions.HTTPError:
+                last_error = f"HTTP error from {model}: {resp.status_code}"
+                logger.warning(last_error)
                 continue
-            resp.raise_for_status()
-            return resp.json()
-        except requests.exceptions.HTTPError:
-            last_error = f"HTTP error from {model}: {resp.status_code}"
-            logger.warning(last_error)
-            continue
-        except Exception as e:
-            last_error = str(e)
-            logger.warning(f"Error calling {model}: {e}")
-            continue
+            except Exception as e:
+                last_error = str(e)
+                logger.warning(f"Error calling {model}: {e}")
+                continue
+        # All models failed this pass — wait before retrying
+        if attempt < max_retries - 1:
+            logger.warning(f"All models busy, waiting 5s before retry (attempt {attempt + 1}/{max_retries})")
+            time.sleep(5)
 
     raise RuntimeError(
         "All Gemini models are busy. Please wait about 60 seconds and try again."
