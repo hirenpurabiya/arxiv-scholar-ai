@@ -21,7 +21,7 @@ from .config import GOOGLE_API_KEY, MCP_SERVER_URL
 
 logger = logging.getLogger(__name__)
 
-AGENT_MODELS = ["gemini-2.0-flash-lite", "gemini-1.5-flash", "gemini-2.0-flash"]
+AGENT_MODELS = ["gemini-2.0-flash-lite", "gemini-2.0-flash", "gemini-2.5-flash"]
 API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 
 
