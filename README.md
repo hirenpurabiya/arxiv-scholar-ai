@@ -30,21 +30,25 @@ Search [arXiv](https://arxiv.org/) for academic papers on any topic, get AI-powe
 ## Architecture
 
 ```
-┌──────────────────┐     ┌──────────────────┐     ┌──────────────┐
-│   Next.js        │     │   FastAPI         │     │   arXiv API  │
-│   Frontend       │────▶│   Backend (REST)  │────▶│   (papers)   │
-│   (React + TS)   │     │   (Python)        │     └──────────────┘
-│                  │     │                   │
-│  MCP Playground  │SSE  │  /api/mcp-query   │     ┌──────────────┐
-│  (live agent UI) │────▶│  (MCP agent loop) │────▶│  LLM API     │
-└──────────────────┘     │                   │     │  (reasoning) │
-                         └──────────────────┘     └──────────────┘
-
-┌──────────────────┐     ┌──────────────────┐
-│   MCP Client     │     │   MCP Server     │     Wraps the same
-│   (CLI agent     │────▶│   (FastMCP)      │────▶ backend functions
-│    + LLM)        │     │   stdio / SSE    │     as MCP tools
-└──────────────────┘     └──────────────────┘
+┌──────────────────┐     ┌──────────────────────────────────────────┐
+│   Next.js        │     │   FastAPI Backend (Render)               │
+│   Frontend       │     │                                          │
+│   (React + TS)   │     │  ┌─────────────────┐  ┌──────────────┐  │
+│                  │     │  │  /api/mcp-query  │  │  MCP Server  │  │
+│  MCP Playground  │SSE  │  │  (MCP Agent)     │  │  (FastMCP)   │  │
+│  (live agent UI) │────▶│  │                  │──│  /mcp/sse    │  │
+└──────────────────┘     │  │  Connects as     │  │              │  │
+                         │  │  SSE MCP client  │  │  5 tools     │  │
+┌──────────────────┐     │  └─────────────────┘  │  3 resources  │  │
+│   MCP Client     │     │                       │  2 prompts    │  │
+│   (CLI agent     │────▶│                       │              │  │     ┌──────────────┐
+│    + LLM)  stdio │     │                       └──────┬───────┘  │────▶│  arXiv API   │
+└──────────────────┘     │                              │          │     └──────────────┘
+                         └──────────────────────────────┘          │
+Any MCP client                                                     │     ┌──────────────┐
+(Claude Desktop,         Agent agentic loop:                       │────▶│  LLM API     │
+ Cursor, custom)         LLM picks tool → session.call_tool()     │     │  (Gemini)    │
+can also connect         → MCP server executes → loop or answer         └──────────────┘
 ```
 
 ---
@@ -132,7 +136,7 @@ python mcp_client.py
 
 ## MCP Integration
 
-The MCP layer wraps the existing backend functions as standardized tools that any MCP-compatible client (Claude Desktop, Cursor, custom agents) can use.
+The MCP server is mounted on the FastAPI app at `/mcp/sse`. The web agent connects to it as a real SSE client -- tools are discovered dynamically and executed through the MCP protocol. Any MCP-compatible client (Claude Desktop, Cursor, custom agents) can also connect.
 
 ### Tools
 
@@ -175,11 +179,12 @@ The Thinking panel shows every step in real-time: which tools the AI picks, the 
 ### How it works
 
 1. Your query hits `/api/mcp-query` (SSE endpoint)
-2. The LLM receives the query + MCP tool declarations
-3. The LLM picks which tools to call (search, summarize, explain, etc.)
-4. Tools execute against the real backend functions
-5. The LLM reads results and may call more tools or compose the final answer
-6. Every step streams to the browser as a Server-Sent Event
+2. The MCP agent connects to the MCP server via SSE (`session.initialize()`)
+3. Tools are discovered dynamically (`session.list_tools()`)
+4. The LLM picks which tools to call (search, summarize, explain, etc.)
+5. Tools execute through the MCP protocol (`session.call_tool()`) -- not direct function calls
+6. The LLM reads results and may call more tools or compose the final answer
+7. Every step streams to the browser as a Server-Sent Event
 
 ---
 
@@ -246,7 +251,7 @@ arxiv-scholar-ai/
 │       ├── article_reader.py  # Article metadata retrieval
 │       ├── summarizer.py      # LLM-powered summarization + local fallback
 │       ├── chat_engine.py     # LLM-powered interactive chat
-│       └── mcp_agent.py       # Agentic loop with tool calling (MCP Playground)
+│       └── mcp_agent.py       # MCP SSE client + agentic loop (MCP Playground)
 ├── frontend/
 │   ├── src/
 │   │   ├── app/
