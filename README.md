@@ -181,10 +181,19 @@ The Thinking panel shows every step in real-time: which tools the AI picks, the 
 1. Your query hits `/api/mcp-query` (SSE endpoint)
 2. The MCP agent connects to the MCP server via SSE (`session.initialize()`)
 3. Tools are discovered dynamically (`session.list_tools()`)
-4. The LLM picks which tools to call (search, summarize, explain, etc.)
-5. Tools execute through the MCP protocol (`session.call_tool()`) -- not direct function calls
-6. The LLM reads results and may call more tools or compose the final answer
-7. Every step streams to the browser as a Server-Sent Event
+4. A **system instruction** tells the LLM: "You MUST use the available tools. Always search first, never answer from memory."
+5. The LLM picks which tools to call (search, summarize, explain, etc.)
+6. Tools execute through the MCP protocol (`session.call_tool()`) -- not direct function calls
+7. The LLM reads results and may call more tools or compose the final answer
+8. Every step streams to the browser as a Server-Sent Event
+
+### Prompt engineering & resilience
+
+- **System instruction** — Gemini receives a structured prompt that forces tool usage, preventing it from answering from memory
+- **MCP prompt templates** — `research_summary` and `explain_like_ten` are reusable prompt templates discoverable via the MCP protocol
+- **Model fallback** — rotates through 3 Gemini models (flash-lite → 1.5-flash → 2.0-flash) with automatic retry on rate limits
+- **Rate limit detection** — agent stops the agentic loop immediately when arXiv or Gemini signals rate limiting, instead of retrying and compounding the problem
+- **arXiv retry with backoff** — handles transient 429 errors with exponential delay (5s, 10s, 15s)
 
 ---
 
