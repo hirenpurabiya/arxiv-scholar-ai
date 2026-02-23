@@ -50,13 +50,22 @@ def search_arxiv(
         JSON string with list of papers found
     """
     max_results = max(1, min(20, max_results))
-    articles = find_articles(
-        topic=topic,
-        max_results=max_results,
-        sort_by=sort_by,
-        date_from=date_from,
-        date_to=date_to,
-    )
+    try:
+        articles = find_articles(
+            topic=topic,
+            max_results=max_results,
+            sort_by=sort_by,
+            date_from=date_from,
+            date_to=date_to,
+        )
+    except Exception as e:
+        if "429" in str(e):
+            return json.dumps({
+                "count": 0,
+                "message": f"arXiv is temporarily rate-limiting requests. The search results for '{topic}' are not available right now. Do NOT retry this tool -- instead, tell the user to try again in about 60 seconds.",
+            })
+        raise
+
     if not articles:
         return json.dumps({"count": 0, "message": f"No papers found for '{topic}'."})
 

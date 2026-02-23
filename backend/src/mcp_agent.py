@@ -171,7 +171,9 @@ async def run_mcp_agent(query: str) -> AsyncGenerator[Dict[str, Any], None]:
                 max_iterations = 10
                 iteration = 0
 
-                while tool_calls and iteration < max_iterations:
+                rate_limited = False
+
+                while tool_calls and iteration < max_iterations and not rate_limited:
                     iteration += 1
                     conversation.append(response["candidates"][0]["content"])
 
@@ -188,6 +190,10 @@ async def run_mcp_agent(query: str) -> AsyncGenerator[Dict[str, Any], None]:
                         except Exception as e:
                             logger.error(f"MCP tool {fn_name} error: {e}")
                             result_text = f"Error executing {fn_name}: {e}"
+
+                        # Stop the loop if arXiv is rate-limiting us
+                        if "rate-limiting" in result_text.lower() or "do not retry" in result_text.lower():
+                            rate_limited = True
 
                         yield {
                             "type": "tool_result",
