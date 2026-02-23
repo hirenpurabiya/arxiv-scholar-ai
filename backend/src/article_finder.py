@@ -20,7 +20,8 @@ SORT_CRITERIA = {
     "updated": arxiv.SortCriterion.LastUpdatedDate,
 }
 
-FETCH_MULTIPLIER = 5
+FETCH_MULTIPLIER = 3
+MAX_FETCH_COUNT = 25
 
 
 def _parse_date(yyyymmdd: str) -> date:
@@ -76,10 +77,15 @@ def find_articles(
     Returns:
         List of article metadata dicts, at most max_results items
     """
-    client = arxiv.Client()
+    client = arxiv.Client(
+        page_size=20,
+        delay_seconds=3,
+        num_retries=3,
+    )
 
     has_date_filter = bool(date_from or date_to)
     fetch_count = max_results * FETCH_MULTIPLIER if has_date_filter else max_results
+    fetch_count = min(fetch_count, MAX_FETCH_COUNT)
 
     sort_criterion = SORT_CRITERIA.get(sort_by, arxiv.SortCriterion.Relevance)
 
