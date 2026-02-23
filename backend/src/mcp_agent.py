@@ -100,10 +100,14 @@ def _call_gemini(messages: list, tools: list) -> dict:
                     last_error = f"Rate limited on {model}"
                     time.sleep(1)
                     continue
-                resp.raise_for_status()
+                if resp.status_code != 200:
+                    body = resp.text[:300]
+                    logger.warning(f"{model} returned {resp.status_code}: {body}")
+                    last_error = f"{model} returned {resp.status_code}"
+                    continue
                 return resp.json()
-            except requests.exceptions.HTTPError:
-                last_error = f"HTTP error from {model}: {resp.status_code}"
+            except requests.exceptions.Timeout:
+                last_error = f"Timeout calling {model}"
                 logger.warning(last_error)
                 continue
             except Exception as e:
@@ -115,8 +119,9 @@ def _call_gemini(messages: list, tools: list) -> dict:
             logger.warning(f"All models busy, waiting 5s before retry (attempt {attempt + 1}/{max_retries})")
             time.sleep(5)
 
+    sanitized = _sanitize_error(last_error or "Unknown error")
     raise RuntimeError(
-        "All Gemini models are busy. Please wait about 60 seconds and try again."
+        f"All Gemini models are busy ({sanitized}). Please wait about 60 seconds and try again."
     )
 
 
