@@ -7,6 +7,7 @@ import arxiv
 import json
 import os
 import logging
+import time
 from datetime import datetime, date
 from typing import List, Dict, Any, Optional
 
@@ -22,6 +23,8 @@ SORT_CRITERIA = {
 
 FETCH_MULTIPLIER = 3
 MAX_FETCH_COUNT = 25
+ARXIV_RETRIES = 3
+ARXIV_RETRY_DELAY = 5  # seconds, doubles each retry
 
 
 def _parse_date(yyyymmdd: str) -> date:
@@ -77,15 +80,16 @@ def find_articles(
     Returns:
         List of article metadata dicts, at most max_results items
     """
-    client = arxiv.Client(
-        page_size=20,
-        delay_seconds=3,
-        num_retries=3,
-    )
-
     has_date_filter = bool(date_from or date_to)
     fetch_count = max_results * FETCH_MULTIPLIER if has_date_filter else max_results
     fetch_count = min(fetch_count, MAX_FETCH_COUNT)
+
+    # page_size matches fetch_count so arXiv sees the actual number we need
+    client = arxiv.Client(
+        page_size=fetch_count,
+        delay_seconds=3,
+        num_retries=3,
+    )
 
     sort_criterion = SORT_CRITERIA.get(sort_by, arxiv.SortCriterion.Relevance)
 
@@ -95,7 +99,30 @@ def find_articles(
         sort_by=sort_criterion,
     )
 
-    results = client.results(search)
+    # arxiv library doesn't retry on HTTP 429, so we handle it ourselves
+    all_articles = []
+    for attempt in range(ARXIV_RETRIES):
+        try:
+            all_articles = []
+            for result in client.results(search):
+                article_id = result.get_short_id()
+                all_articles.append({
+                    "id": article_id,
+                    "title": result.title,
+                    "authors": [author.name for author in result.authors],
+                    "summary": result.summary,
+                    "pdf_url": str(result.pdf_url),
+                    "published": str(result.published.date()),
+                    "topic": topic,
+                })
+            break
+        except Exception as e:
+            if "429" in str(e) and attempt < ARXIV_RETRIES - 1:
+                wait = ARXIV_RETRY_DELAY * (attempt + 1)
+                logger.warning(f"arXiv rate limit (429), retrying in {wait}s (attempt {attempt + 1}/{ARXIV_RETRIES})")
+                time.sleep(wait)
+                continue
+            raise
 
     topic_slug = topic.lower().strip().replace(" ", "_")
     topic_dir = os.path.join(RESEARCH_DIR, topic_slug)
@@ -110,22 +137,8 @@ def find_articles(
     except (FileNotFoundError, json.JSONDecodeError):
         existing_data = {}
 
-    all_articles = []
-    for result in results:
-        article_id = result.get_short_id()
-
-        article_metadata = {
-            "id": article_id,
-            "title": result.title,
-            "authors": [author.name for author in result.authors],
-            "summary": result.summary,
-            "pdf_url": str(result.pdf_url),
-            "published": str(result.published.date()),
-            "topic": topic,
-        }
-
-        existing_data[article_id] = article_metadata
-        all_articles.append(article_metadata)
+    for article in all_articles:
+        existing_data[article["id"]] = article
 
     with open(metadata_path, "w") as f:
         json.dump(existing_data, f, indent=2)
