@@ -4,7 +4,7 @@
 
 Search [arXiv](https://arxiv.org/) for academic papers on any topic, get AI-powered summaries, and chat about papers with an "Explain Like I'm 10" AI tutor. Includes an MCP server and client that expose all capabilities as standardized tools, resources, and prompts.
 
-> **LLM-agnostic architecture.** Currently uses Google Gemini (free tier). The AI layer is swappable — plug in OpenAI, Anthropic, xAI, Meta Llama, AWS Bedrock, or any LLM by changing a single API call.
+> **LLM-agnostic architecture.** Uses Google Gemini (free tier) as the primary LLM with automatic failover to OpenAI GPT-4o-mini. The AI layer is provider-agnostic — swap in Anthropic, xAI, Meta Llama, AWS Bedrock, or any LLM with a single config change.
 
 **Live Demo:** [arxiv-scholar-ai.vercel.app](https://arxiv-scholar-ai.vercel.app)
 **MCP Server:** [huggingface.co/spaces/hirenpurabiya/arxiv-scholar-ai](https://huggingface.co/spaces/hirenpurabiya/arxiv-scholar-ai) — connect from Claude Desktop, Cursor, or any MCP client
@@ -60,7 +60,7 @@ can also connect         → MCP server executes → loop or answer         └�
 |------------|------------------------------------------------|
 | Frontend   | Next.js, React, TypeScript, Tailwind CSS       |
 | Backend    | Python, FastAPI, Pydantic                      |
-| AI         | LLM-powered (currently Gemini free tier; swappable) |
+| AI         | Google Gemini (primary) + OpenAI GPT-4o-mini (fallback) |
 | MCP        | FastMCP, MCP SDK (stdio + SSE transports)      |
 | Data       | arXiv API via `arxiv` library                  |
 | Deployment | Vercel (frontend), Render (backend), Hugging Face (MCP server) |
