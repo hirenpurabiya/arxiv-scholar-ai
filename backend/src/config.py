@@ -1,6 +1,7 @@
 """
 Configuration and constants for ArXiv Scholar AI.
 Handles environment variables and application settings.
+Supports multiple LLM providers (Gemini primary, OpenAI fallback).
 """
 
 import os
