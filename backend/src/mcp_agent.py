@@ -2,9 +2,12 @@
 MCP Agent for ArXiv Scholar AI.
 
 Connects to the MCP server as a real SSE client, discovers tools dynamically,
-and runs an agentic loop: Gemini decides which MCP tools to call,
+and runs an agentic loop: the LLM decides which MCP tools to call,
 the agent executes them via the MCP protocol, and yields reasoning steps
 for real-time streaming to the frontend.
+
+LLM strategy: tries Gemini (free tier, 2 models) first, falls back to OpenAI
+if all Gemini models are rate-limited.
 """
 
 import json
@@ -17,13 +20,26 @@ import requests
 from mcp import ClientSession
 from mcp.client.sse import sse_client
 
-from .config import GOOGLE_API_KEY, MCP_SERVER_URL
+from .config import GOOGLE_API_KEY, OPENAI_API_KEY, MCP_SERVER_URL
 
 logger = logging.getLogger(__name__)
 
-AGENT_MODEL = "gemini-2.0-flash-lite"
-API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
+# Gemini models to try (flash-lite has higher free RPM, flash is fallback)
+GEMINI_MODELS = ["gemini-2.0-flash-lite", "gemini-2.0-flash"]
+GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
+
+# OpenAI fallback (only used when ALL Gemini models are rate-limited)
+OPENAI_MODEL = "gpt-4o-mini"
+OPENAI_API_URL = "https://api.openai.com/v1/chat/completions"
+
 MAX_TOOL_RESULT_CHARS = 3000
+
+SYSTEM_PROMPT = (
+    "You are ArXiv Scholar AI, a research assistant that helps users "
+    "explore academic papers from arXiv. You MUST use the available tools "
+    "to answer every question. Always call search_arxiv first to find papers. "
+    "Never answer from memory alone — search first, then summarize or explain."
+)
 
 
 def _sanitize_error(msg: str) -> str:
@@ -31,6 +47,9 @@ def _sanitize_error(msg: str) -> str:
     msg = re.sub(r'key=[A-Za-z0-9_-]+', 'key=***', msg)
     msg = re.sub(r'https?://\S+', '[API endpoint]', msg)
     return msg
+
+
+# --------------- Tool Schema Converters ---------------
 
 
 def _mcp_tools_to_gemini(mcp_tools: list) -> list:
@@ -69,65 +88,270 @@ def _mcp_tools_to_gemini(mcp_tools: list) -> list:
     return declarations
 
 
+def _mcp_tools_to_openai(mcp_tools: list) -> list:
+    """Convert MCP tool schemas to OpenAI function tool format."""
+    tools = []
+    for tool in mcp_tools:
+        schema = tool.inputSchema or {}
+        properties = schema.get("properties", {})
+        required = schema.get("required", [])
+
+        openai_props = {}
+        for name, prop in properties.items():
+            openai_props[name] = {
+                "type": prop.get("type", "string"),
+                "description": prop.get("description", ""),
+            }
+
+        tools.append({
+            "type": "function",
+            "function": {
+                "name": tool.name,
+                "description": tool.description or "",
+                "parameters": {
+                    "type": "object",
+                    "properties": openai_props,
+                    "required": required,
+                },
+            },
+        })
+    return tools
+
+
+# --------------- Message Format Converters ---------------
+
+
+def _gemini_to_openai_messages(gemini_messages: list) -> list:
+    """
+    Convert Gemini conversation to OpenAI messages.
+
+    Gemini uses: contents[] with role+parts (functionCall, functionResponse)
+    OpenAI uses: messages[] with role (assistant+tool_calls, tool+tool_call_id)
+    """
+    openai_msgs = [{"role": "system", "content": SYSTEM_PROMPT}]
+    call_counter = 0
+    pending_call_ids = []
+
+    for msg in gemini_messages:
+        role = msg.get("role", "")
+        parts = msg.get("parts", [])
+
+        if role == "user":
+            text_parts = [p["text"] for p in parts if "text" in p]
+            openai_msgs.append({"role": "user", "content": " ".join(text_parts)})
+
+        elif role == "model":
+            text_parts = [p["text"] for p in parts if "text" in p]
+            func_calls = [p["functionCall"] for p in parts if "functionCall" in p]
+
+            if func_calls:
+                pending_call_ids = []
+                tool_calls = []
+                for fc in func_calls:
+                    call_counter += 1
+                    call_id = f"call_{call_counter}"
+                    pending_call_ids.append(call_id)
+                    tool_calls.append({
+                        "id": call_id,
+                        "type": "function",
+                        "function": {
+                            "name": fc["name"],
+                            "arguments": json.dumps(fc.get("args", {})),
+                        },
+                    })
+                assistant_msg: dict = {"role": "assistant", "tool_calls": tool_calls}
+                if text_parts:
+                    assistant_msg["content"] = " ".join(text_parts)
+                openai_msgs.append(assistant_msg)
+            elif text_parts:
+                openai_msgs.append({"role": "assistant", "content": " ".join(text_parts)})
+
+        elif role == "function":
+            responses = [p["functionResponse"] for p in parts if "functionResponse" in p]
+            for i, fr in enumerate(responses):
+                call_id = pending_call_ids[i] if i < len(pending_call_ids) else f"call_{call_counter + i + 1}"
+                result = fr.get("response", {}).get("result", "")
+                openai_msgs.append({
+                    "role": "tool",
+                    "tool_call_id": call_id,
+                    "content": str(result),
+                })
+
+    return openai_msgs
+
+
+def _openai_to_gemini_response(openai_data: dict) -> dict:
+    """
+    Convert OpenAI chat completion response to Gemini response format.
+
+    This lets _extract_text() and _extract_tool_calls() work unchanged,
+    regardless of which provider generated the response.
+    """
+    choice = openai_data["choices"][0]
+    message = choice["message"]
+    parts = []
+
+    if message.get("content"):
+        parts.append({"text": message["content"]})
+
+    if message.get("tool_calls"):
+        for tc in message["tool_calls"]:
+            fn = tc["function"]
+            try:
+                args = json.loads(fn["arguments"])
+            except (json.JSONDecodeError, TypeError):
+                args = {}
+            parts.append({
+                "functionCall": {
+                    "name": fn["name"],
+                    "args": args,
+                }
+            })
+
+    return {
+        "candidates": [{
+            "content": {
+                "role": "model",
+                "parts": parts,
+            }
+        }]
+    }
+
+
+# --------------- LLM Call Functions ---------------
+
+
 def _call_gemini(messages: list, tools: list) -> dict:
     """
     Call Gemini API with function declarations.
-    Uses a single model (gemini-2.0-flash-lite, 30 RPM free tier).
-    Retries with backoff on rate limits.
+
+    Tries each model in GEMINI_MODELS (flash-lite first, then flash).
+    Each model has its own rate limit quota, so if one is 429'd the
+    other may still work. Runs up to 3 rounds with increasing waits
+    between rounds (0s, 10s, 20s).
     """
     payload: dict = {
-        "systemInstruction": {
-            "parts": [{
-                "text": (
-                    "You are ArXiv Scholar AI, a research assistant that helps users "
-                    "explore academic papers from arXiv. You MUST use the available tools "
-                    "to answer every question. Always call search_arxiv first to find papers. "
-                    "Never answer from memory alone — search first, then summarize or explain."
-                )
-            }]
-        },
+        "systemInstruction": {"parts": [{"text": SYSTEM_PROMPT}]},
         "contents": messages,
         "tools": [{"functionDeclarations": tools}],
     }
     payload_size = len(json.dumps(payload))
-    logger.info(f"Gemini payload: {payload_size} chars, model: {AGENT_MODEL}")
+    logger.info(f"Gemini payload: {payload_size} chars")
 
-    url = f"{API_BASE}/{AGENT_MODEL}:generateContent?key={GOOGLE_API_KEY}"
-    max_retries = 3
     last_error = None
+    round_waits = [0, 10, 20]
 
-    for attempt in range(max_retries):
-        try:
-            resp = requests.post(url, json=payload, timeout=30)
-            if resp.status_code == 429:
-                wait = 5 * (attempt + 1)
-                logger.warning(f"Rate limited on {AGENT_MODEL}, waiting {wait}s (attempt {attempt + 1}/{max_retries})")
-                last_error = f"Rate limited on {AGENT_MODEL}"
-                time.sleep(wait)
+    for round_num in range(len(round_waits)):
+        if round_waits[round_num] > 0:
+            logger.info(f"All Gemini models 429'd, waiting {round_waits[round_num]}s before round {round_num + 1}")
+            time.sleep(round_waits[round_num])
+
+        for model in GEMINI_MODELS:
+            url = f"{GEMINI_API_BASE}/{model}:generateContent?key={GOOGLE_API_KEY}"
+            try:
+                resp = requests.post(url, json=payload, timeout=30)
+                if resp.status_code == 429:
+                    reason = resp.text[:200]
+                    logger.warning(f"429 on {model} (round {round_num + 1}): {reason}")
+                    last_error = f"Rate limited on {model}"
+                    continue
+                if resp.status_code != 200:
+                    body = resp.text[:300]
+                    logger.warning(f"{model} returned {resp.status_code}: {body}")
+                    last_error = f"{model} returned {resp.status_code}"
+                    continue
+                logger.info(f"Gemini OK on {model} (round {round_num + 1}), ~{len(resp.text)} chars")
+                return resp.json()
+            except requests.exceptions.Timeout:
+                last_error = f"Timeout calling {model}"
+                logger.warning(last_error)
                 continue
-            if resp.status_code != 200:
-                body = resp.text[:300]
-                logger.warning(f"{AGENT_MODEL} returned {resp.status_code}: {body}")
-                last_error = f"{AGENT_MODEL} returned {resp.status_code}"
-                break
-            return resp.json()
-        except requests.exceptions.Timeout:
-            last_error = f"Timeout calling {AGENT_MODEL}"
-            logger.warning(last_error)
-            break
-        except Exception as e:
-            last_error = str(e)
-            logger.warning(f"Error calling {AGENT_MODEL}: {e}")
-            break
+            except Exception as e:
+                last_error = str(e)
+                logger.warning(f"Error calling {model}: {e}")
+                continue
 
-    sanitized = _sanitize_error(last_error or "Unknown error")
     raise RuntimeError(
-        f"Gemini is busy ({sanitized}). Please wait about 60 seconds and try again."
+        f"All Gemini models exhausted: {_sanitize_error(last_error or 'Unknown error')}"
     )
 
 
+def _call_openai(gemini_messages: list, openai_tools: list) -> dict:
+    """
+    Call OpenAI API as fallback. Converts Gemini conversation to OpenAI format,
+    makes the call, and converts the response back to Gemini format.
+
+    Returns a Gemini-format response dict so the agentic loop needs no changes.
+    """
+    if not OPENAI_API_KEY:
+        raise RuntimeError("OpenAI API key not configured")
+
+    openai_messages = _gemini_to_openai_messages(gemini_messages)
+
+    payload = {
+        "model": OPENAI_MODEL,
+        "messages": openai_messages,
+        "tools": openai_tools,
+        "temperature": 0.7,
+    }
+    headers = {
+        "Authorization": f"Bearer {OPENAI_API_KEY}",
+        "Content-Type": "application/json",
+    }
+
+    logger.info(f"Falling back to OpenAI {OPENAI_MODEL}")
+    try:
+        resp = requests.post(OPENAI_API_URL, json=payload, headers=headers, timeout=30)
+        if resp.status_code != 200:
+            body = resp.text[:300]
+            logger.warning(f"OpenAI {OPENAI_MODEL} returned {resp.status_code}: {body}")
+            raise RuntimeError(f"OpenAI returned {resp.status_code}")
+
+        openai_data = resp.json()
+        logger.info(f"OpenAI OK on {OPENAI_MODEL}, ~{len(resp.text)} chars")
+        return _openai_to_gemini_response(openai_data)
+    except requests.exceptions.Timeout:
+        raise RuntimeError(f"Timeout calling OpenAI {OPENAI_MODEL}")
+
+
+def _call_llm(gemini_messages: list, gemini_tools: list, openai_tools: list) -> dict:
+    """
+    Unified LLM call: tries Gemini first (2 models x 3 rounds),
+    falls back to OpenAI if all Gemini attempts fail.
+
+    Returns a Gemini-format response dict in all cases.
+    """
+    gemini_available = bool(GOOGLE_API_KEY)
+    openai_available = bool(OPENAI_API_KEY)
+
+    if gemini_available:
+        try:
+            return _call_gemini(gemini_messages, gemini_tools)
+        except RuntimeError as gemini_err:
+            if not openai_available:
+                sanitized = _sanitize_error(str(gemini_err))
+                raise RuntimeError(
+                    f"Gemini is busy ({sanitized}). Please wait about 60 seconds and try again."
+                )
+            logger.warning(f"Gemini failed, trying OpenAI fallback: {gemini_err}")
+
+    if openai_available:
+        try:
+            return _call_openai(gemini_messages, openai_tools)
+        except RuntimeError as openai_err:
+            logger.error(f"OpenAI fallback also failed: {openai_err}")
+            raise RuntimeError(
+                f"AI is busy ({_sanitize_error(str(openai_err))}). Please try again."
+            )
+
+    raise RuntimeError("No AI API key configured.")
+
+
+# --------------- Response Extractors ---------------
+
+
 def _extract_text(response: dict) -> str | None:
-    """Pull text from a Gemini response."""
+    """Pull text from a Gemini-format response."""
     try:
         for part in response["candidates"][0]["content"]["parts"]:
             if "text" in part:
@@ -138,7 +362,7 @@ def _extract_text(response: dict) -> str | None:
 
 
 def _extract_tool_calls(response: dict) -> list:
-    """Pull function-call requests from a Gemini response."""
+    """Pull function-call requests from a Gemini-format response."""
     calls = []
     try:
         for part in response["candidates"][0]["content"]["parts"]:
@@ -147,6 +371,9 @@ def _extract_tool_calls(response: dict) -> list:
     except (KeyError, IndexError):
         pass
     return calls
+
+
+# --------------- MCP Agentic Loop ---------------
 
 
 async def run_mcp_agent(query: str) -> AsyncGenerator[Dict[str, Any], None]:
@@ -159,8 +386,8 @@ async def run_mcp_agent(query: str) -> AsyncGenerator[Dict[str, Any], None]:
 
     Each step: {"type": "thinking"|"tool_call"|"tool_result"|"answer"|"error", "content": ...}
     """
-    if not GOOGLE_API_KEY:
-        yield {"type": "error", "content": "Google API key not configured."}
+    if not GOOGLE_API_KEY and not OPENAI_API_KEY:
+        yield {"type": "error", "content": "No AI API key configured."}
         return
 
     yield {"type": "thinking", "content": "Connecting to MCP server..."}
@@ -173,7 +400,8 @@ async def run_mcp_agent(query: str) -> AsyncGenerator[Dict[str, Any], None]:
                 # Discover tools dynamically from the MCP server
                 tools_result = await session.list_tools()
                 mcp_tools = tools_result.tools
-                gemini_declarations = _mcp_tools_to_gemini(mcp_tools)
+                gemini_tools = _mcp_tools_to_gemini(mcp_tools)
+                openai_tools = _mcp_tools_to_openai(mcp_tools)
 
                 tool_names = [t.name for t in mcp_tools]
                 yield {
@@ -184,16 +412,15 @@ async def run_mcp_agent(query: str) -> AsyncGenerator[Dict[str, Any], None]:
                 conversation = [{"role": "user", "parts": [{"text": query}]}]
 
                 try:
-                    response = _call_gemini(conversation, gemini_declarations)
+                    response = _call_llm(conversation, gemini_tools, openai_tools)
                 except Exception as e:
-                    logger.error(f"Gemini initial call failed: {e}")
+                    logger.error(f"LLM initial call failed: {e}")
                     yield {"type": "error", "content": _sanitize_error(str(e))}
                     return
 
                 tool_calls = _extract_tool_calls(response)
                 max_iterations = 10
                 iteration = 0
-
                 rate_limited = False
 
                 while tool_calls and iteration < max_iterations and not rate_limited:
@@ -209,35 +436,39 @@ async def run_mcp_agent(query: str) -> AsyncGenerator[Dict[str, Any], None]:
 
                         try:
                             result = await session.call_tool(fn_name, fn_args)
-                            result_text = result.content[0].text if result.content else "No result."
-                            if len(result_text) > MAX_TOOL_RESULT_CHARS:
-                                result_text = result_text[:MAX_TOOL_RESULT_CHARS] + "\n...[truncated]"
+                            full_result = result.content[0].text if result.content else "No result."
                         except Exception as e:
                             logger.error(f"MCP tool {fn_name} error: {e}")
-                            result_text = f"Error executing {fn_name}: {e}"
+                            full_result = f"Error executing {fn_name}: {e}"
 
                         # Stop the loop if arXiv is rate-limiting us
-                        if "rate-limiting" in result_text.lower() or "do not retry" in result_text.lower():
+                        if "rate-limiting" in full_result.lower() or "do not retry" in full_result.lower():
                             rate_limited = True
 
+                        # Send FULL result to frontend (so it can parse paper JSON)
                         yield {
                             "type": "tool_result",
-                            "content": {"name": fn_name, "result": result_text},
+                            "content": {"name": fn_name, "result": full_result},
                         }
+
+                        # Truncate for LLM conversation (save tokens, avoid timeouts)
+                        llm_result = full_result
+                        if len(llm_result) > MAX_TOOL_RESULT_CHARS:
+                            llm_result = llm_result[:MAX_TOOL_RESULT_CHARS] + "\n...[truncated]"
 
                         function_responses.append({
                             "functionResponse": {
                                 "name": fn_name,
-                                "response": {"result": result_text},
+                                "response": {"result": llm_result},
                             }
                         })
 
                     conversation.append({"role": "function", "parts": function_responses})
 
                     try:
-                        response = _call_gemini(conversation, gemini_declarations)
+                        response = _call_llm(conversation, gemini_tools, openai_tools)
                     except Exception as e:
-                        logger.error(f"Gemini follow-up call failed: {e}")
+                        logger.error(f"LLM follow-up call failed: {e}")
                         yield {"type": "error", "content": _sanitize_error(str(e))}
                         return
 
@@ -245,8 +476,10 @@ async def run_mcp_agent(query: str) -> AsyncGenerator[Dict[str, Any], None]:
 
                 answer = _extract_text(response)
                 if answer:
+                    logger.info(f"Agent complete: {iteration} iterations, answer={len(answer)} chars")
                     yield {"type": "answer", "content": answer}
                 else:
+                    logger.warning("Agent complete but no text in final response")
                     yield {"type": "error", "content": "No response from AI."}
 
                 yield {"type": "done", "content": ""}
