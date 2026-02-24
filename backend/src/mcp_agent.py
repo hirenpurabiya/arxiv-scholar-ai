@@ -110,6 +110,7 @@ def _call_gemini(messages: list, tools: list) -> dict:
                 logger.warning(f"{AGENT_MODEL} returned {resp.status_code}: {body}")
                 last_error = f"{AGENT_MODEL} returned {resp.status_code}"
                 break
+            logger.info(f"Gemini response OK: {resp.status_code}, ~{len(resp.text)} chars")
             return resp.json()
         except requests.exceptions.Timeout:
             last_error = f"Timeout calling {AGENT_MODEL}"
@@ -249,8 +250,10 @@ async def run_mcp_agent(query: str) -> AsyncGenerator[Dict[str, Any], None]:
 
                 answer = _extract_text(response)
                 if answer:
+                    logger.info(f"Agent complete: {iteration} iterations, answer={len(answer)} chars")
                     yield {"type": "answer", "content": answer}
                 else:
+                    logger.warning("Agent complete but no text in final Gemini response")
                     yield {"type": "error", "content": "No response from AI."}
 
                 yield {"type": "done", "content": ""}
