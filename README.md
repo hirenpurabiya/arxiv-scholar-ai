@@ -7,6 +7,7 @@ Search [arXiv](https://arxiv.org/) for academic papers on any topic, get AI-powe
 > **LLM-agnostic architecture.** Currently uses Google Gemini (free tier). The AI layer is swappable — plug in OpenAI, Anthropic, xAI, Meta Llama, AWS Bedrock, or any LLM by changing a single API call.
 
 **Live Demo:** [arxiv-scholar-ai.vercel.app](https://arxiv-scholar-ai.vercel.app)
+**MCP Server:** [huggingface.co/spaces/hirenpurabiya/arxiv-scholar-ai](https://huggingface.co/spaces/hirenpurabiya/arxiv-scholar-ai)
 
 ---
 
@@ -62,7 +63,7 @@ can also connect         → MCP server executes → loop or answer         └�
 | AI         | LLM-powered (currently Gemini free tier; swappable) |
 | MCP        | FastMCP, MCP SDK (stdio + SSE transports)      |
 | Data       | arXiv API via `arxiv` library                  |
-| Deployment | Vercel (frontend), Render (backend)            |
+| Deployment | Vercel (frontend), Render (backend), Hugging Face (MCP server) |
 
 ---
 
@@ -227,6 +228,24 @@ You can also connect via any MCP-compatible client (Claude Desktop, Cursor, cust
   }
 }
 ```
+
+---
+
+## Remote MCP Server (Hugging Face)
+
+The MCP server is also deployed on Hugging Face Spaces with a Gradio UI. Any MCP-compatible client can connect remotely:
+
+```json
+{
+  "mcpServers": {
+    "arxiv-scholar-ai": {
+      "url": "https://hirenpurabiya-arxiv-scholar-ai.hf.space/gradio_api/mcp/sse"
+    }
+  }
+}
+```
+
+Visit [huggingface.co/spaces/hirenpurabiya/arxiv-scholar-ai](https://huggingface.co/spaces/hirenpurabiya/arxiv-scholar-ai) to try the Gradio UI directly.
 
 ---
 
