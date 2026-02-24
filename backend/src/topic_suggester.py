@@ -12,8 +12,8 @@ from .config import GOOGLE_API_KEY
 
 logger = logging.getLogger(__name__)
 
-API_BASE = "https://generativelanguage.googleapis.com"
-MODELS = ["gemini-2.0-flash-lite", "gemini-2.0-flash", "gemini-1.5-flash"]
+API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
+MODEL = "gemini-2.0-flash-lite"
 
 
 def suggest_topic(query: str) -> str | None:
@@ -35,27 +35,24 @@ def suggest_topic(query: str) -> str | None:
     )
     payload = {"contents": [{"parts": [{"text": prompt}]}]}
 
-    for model in MODELS:
-        for api_version in ["v1beta", "v1"]:
-            url = f"{API_BASE}/{api_version}/models/{model}:generateContent?key={GOOGLE_API_KEY}"
-            try:
-                resp = requests.post(url, json=payload, timeout=15)
-                if resp.status_code != 200:
-                    continue
-                data = resp.json()
-                text = (
-                    data.get("candidates", [{}])[0]
-                    .get("content", {})
-                    .get("parts", [{}])[0]
-                    .get("text", "")
-                )
-                text = (text or "").strip()
-                # Keep only first line and sanitize
-                text = text.split("\n")[0].strip()
-                text = re.sub(r"[^\w\s\-]", "", text)[:50].strip()
-                if text:
-                    return text
-            except Exception as e:
-                logger.warning(f"Topic suggest {model}: {e}")
-                continue
-    return None
+    url = f"{API_BASE}/{MODEL}:generateContent?key={GOOGLE_API_KEY}"
+    try:
+        resp = requests.post(url, json=payload, timeout=10)
+        if resp.status_code != 200:
+            logger.warning(f"Topic suggest {MODEL}: {resp.status_code}")
+            return None
+        data = resp.json()
+        text = (
+            data.get("candidates", [{}])[0]
+            .get("content", {})
+            .get("parts", [{}])[0]
+            .get("text", "")
+        )
+        text = (text or "").strip()
+        # Keep only first line and sanitize
+        text = text.split("\n")[0].strip()
+        text = re.sub(r"[^\w\s\-]", "", text)[:50].strip()
+        return text if text else None
+    except Exception as e:
+        logger.warning(f"Topic suggest {MODEL}: {e}")
+        return None

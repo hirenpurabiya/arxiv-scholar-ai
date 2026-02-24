@@ -71,7 +71,7 @@ def search_arxiv(
             "pdf_url": a["pdf_url"],
         })
 
-    return json.dumps({"count": len(results), "papers": results}, indent=2)
+    return json.dumps({"count": len(results), "papers": results})
 
 
 @mcp.tool()

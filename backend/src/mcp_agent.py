@@ -209,26 +209,30 @@ async def run_mcp_agent(query: str) -> AsyncGenerator[Dict[str, Any], None]:
 
                         try:
                             result = await session.call_tool(fn_name, fn_args)
-                            result_text = result.content[0].text if result.content else "No result."
-                            if len(result_text) > MAX_TOOL_RESULT_CHARS:
-                                result_text = result_text[:MAX_TOOL_RESULT_CHARS] + "\n...[truncated]"
+                            full_result = result.content[0].text if result.content else "No result."
                         except Exception as e:
                             logger.error(f"MCP tool {fn_name} error: {e}")
-                            result_text = f"Error executing {fn_name}: {e}"
+                            full_result = f"Error executing {fn_name}: {e}"
 
                         # Stop the loop if arXiv is rate-limiting us
-                        if "rate-limiting" in result_text.lower() or "do not retry" in result_text.lower():
+                        if "rate-limiting" in full_result.lower() or "do not retry" in full_result.lower():
                             rate_limited = True
 
+                        # Send FULL result to frontend (so it can parse paper JSON)
                         yield {
                             "type": "tool_result",
-                            "content": {"name": fn_name, "result": result_text},
+                            "content": {"name": fn_name, "result": full_result},
                         }
+
+                        # Truncate for Gemini conversation (save tokens, avoid timeouts)
+                        gemini_result = full_result
+                        if len(gemini_result) > MAX_TOOL_RESULT_CHARS:
+                            gemini_result = gemini_result[:MAX_TOOL_RESULT_CHARS] + "\n...[truncated]"
 
                         function_responses.append({
                             "functionResponse": {
                                 "name": fn_name,
-                                "response": {"result": result_text},
+                                "response": {"result": gemini_result},
                             }
                         })
 
