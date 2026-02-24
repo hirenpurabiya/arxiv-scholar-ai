@@ -21,7 +21,7 @@ from .config import GOOGLE_API_KEY, MCP_SERVER_URL
 
 logger = logging.getLogger(__name__)
 
-AGENT_MODEL = "gemini-2.0-flash-lite"
+AGENT_MODELS = ["gemini-2.0-flash-lite", "gemini-2.0-flash"]
 API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 MAX_TOOL_RESULT_CHARS = 3000
 
@@ -72,8 +72,12 @@ def _mcp_tools_to_gemini(mcp_tools: list) -> list:
 def _call_gemini(messages: list, tools: list) -> dict:
     """
     Call Gemini API with function declarations.
-    Uses a single model (gemini-2.0-flash-lite, 30 RPM free tier).
-    Retries with backoff on rate limits.
+
+    Tries each model in AGENT_MODELS (flash-lite first, then flash).
+    Each model has its own rate limit quota, so if one is 429'd the
+    other may still work. Runs up to 3 rounds with increasing waits
+    between rounds (0s, 10s, 20s). Both models are Gemini 2.0 with
+    identical API formats, so they're safe to interchange mid-conversation.
     """
     payload: dict = {
         "systemInstruction": {
@@ -90,37 +94,41 @@ def _call_gemini(messages: list, tools: list) -> dict:
         "tools": [{"functionDeclarations": tools}],
     }
     payload_size = len(json.dumps(payload))
-    logger.info(f"Gemini payload: {payload_size} chars, model: {AGENT_MODEL}")
+    logger.info(f"Gemini payload: {payload_size} chars")
 
-    url = f"{API_BASE}/{AGENT_MODEL}:generateContent?key={GOOGLE_API_KEY}"
-    max_retries = 4
     last_error = None
+    max_rounds = 3
+    round_waits = [0, 10, 20]
 
-    for attempt in range(max_retries):
-        try:
-            resp = requests.post(url, json=payload, timeout=30)
-            if resp.status_code == 429:
-                reason = resp.text[:200]
-                wait = 10 * (attempt + 1)
-                logger.warning(f"429 on {AGENT_MODEL}, waiting {wait}s (attempt {attempt + 1}/{max_retries}): {reason}")
-                last_error = f"Rate limited on {AGENT_MODEL}"
-                time.sleep(wait)
+    for round_num in range(max_rounds):
+        if round_waits[round_num] > 0:
+            logger.info(f"All models 429'd, waiting {round_waits[round_num]}s before round {round_num + 1}")
+            time.sleep(round_waits[round_num])
+
+        for model in AGENT_MODELS:
+            url = f"{API_BASE}/{model}:generateContent?key={GOOGLE_API_KEY}"
+            try:
+                resp = requests.post(url, json=payload, timeout=30)
+                if resp.status_code == 429:
+                    reason = resp.text[:200]
+                    logger.warning(f"429 on {model} (round {round_num + 1}): {reason}")
+                    last_error = f"Rate limited on {model}"
+                    continue
+                if resp.status_code != 200:
+                    body = resp.text[:300]
+                    logger.warning(f"{model} returned {resp.status_code}: {body}")
+                    last_error = f"{model} returned {resp.status_code}"
+                    continue
+                logger.info(f"Gemini OK on {model} (round {round_num + 1}), ~{len(resp.text)} chars")
+                return resp.json()
+            except requests.exceptions.Timeout:
+                last_error = f"Timeout calling {model}"
+                logger.warning(last_error)
                 continue
-            if resp.status_code != 200:
-                body = resp.text[:300]
-                logger.warning(f"{AGENT_MODEL} returned {resp.status_code}: {body}")
-                last_error = f"{AGENT_MODEL} returned {resp.status_code}"
-                break
-            logger.info(f"Gemini response OK: {resp.status_code}, ~{len(resp.text)} chars")
-            return resp.json()
-        except requests.exceptions.Timeout:
-            last_error = f"Timeout calling {AGENT_MODEL}"
-            logger.warning(last_error)
-            break
-        except Exception as e:
-            last_error = str(e)
-            logger.warning(f"Error calling {AGENT_MODEL}: {e}")
-            break
+            except Exception as e:
+                last_error = str(e)
+                logger.warning(f"Error calling {model}: {e}")
+                continue
 
     sanitized = _sanitize_error(last_error or "Unknown error")
     raise RuntimeError(
