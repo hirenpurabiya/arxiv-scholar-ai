@@ -17,6 +17,9 @@ ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 # Google Gemini API key for chat (free tier)
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
+# OpenAI API key (fallback when Gemini free tier is rate-limited)
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
 # Gemini model for chat (gemini-2.0-flash-lite has better rate limits for free tier)
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash-lite")
 
