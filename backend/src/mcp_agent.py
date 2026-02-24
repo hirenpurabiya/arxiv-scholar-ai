@@ -93,15 +93,16 @@ def _call_gemini(messages: list, tools: list) -> dict:
     logger.info(f"Gemini payload: {payload_size} chars, model: {AGENT_MODEL}")
 
     url = f"{API_BASE}/{AGENT_MODEL}:generateContent?key={GOOGLE_API_KEY}"
-    max_retries = 3
+    max_retries = 4
     last_error = None
 
     for attempt in range(max_retries):
         try:
             resp = requests.post(url, json=payload, timeout=30)
             if resp.status_code == 429:
-                wait = 5 * (attempt + 1)
-                logger.warning(f"Rate limited on {AGENT_MODEL}, waiting {wait}s (attempt {attempt + 1}/{max_retries})")
+                reason = resp.text[:200]
+                wait = 10 * (attempt + 1)
+                logger.warning(f"429 on {AGENT_MODEL}, waiting {wait}s (attempt {attempt + 1}/{max_retries}): {reason}")
                 last_error = f"Rate limited on {AGENT_MODEL}"
                 time.sleep(wait)
                 continue
