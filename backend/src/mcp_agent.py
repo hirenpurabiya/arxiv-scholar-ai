@@ -225,10 +225,10 @@ def _call_gemini(messages: list, tools: list) -> dict:
     """
     Call Gemini API with function declarations.
 
-    Tries each model in GEMINI_MODELS (flash-lite first, then flash).
-    Each model has its own rate limit quota, so if one is 429'd the
-    other may still work. Runs up to 3 rounds with increasing waits
-    between rounds (0s, 10s, 20s).
+    Tries each model in GEMINI_MODELS once (flash-lite first, then flash).
+    If both fail (429 or error), raises immediately so OpenAI fallback
+    kicks in fast. No retry waits — 429 means "quota exhausted for ~60s"
+    so retrying after 10-20s rarely helps and just makes the user wait.
     """
     payload: dict = {
         "systemInstruction": {"parts": [{"text": SYSTEM_PROMPT}]},
@@ -239,37 +239,31 @@ def _call_gemini(messages: list, tools: list) -> dict:
     logger.info(f"Gemini payload: {payload_size} chars")
 
     last_error = None
-    round_waits = [0, 10, 20]
 
-    for round_num in range(len(round_waits)):
-        if round_waits[round_num] > 0:
-            logger.info(f"All Gemini models 429'd, waiting {round_waits[round_num]}s before round {round_num + 1}")
-            time.sleep(round_waits[round_num])
-
-        for model in GEMINI_MODELS:
-            url = f"{GEMINI_API_BASE}/{model}:generateContent?key={GOOGLE_API_KEY}"
-            try:
-                resp = requests.post(url, json=payload, timeout=30)
-                if resp.status_code == 429:
-                    reason = resp.text[:200]
-                    logger.warning(f"429 on {model} (round {round_num + 1}): {reason}")
-                    last_error = f"Rate limited on {model}"
-                    continue
-                if resp.status_code != 200:
-                    body = resp.text[:300]
-                    logger.warning(f"{model} returned {resp.status_code}: {body}")
-                    last_error = f"{model} returned {resp.status_code}"
-                    continue
-                logger.info(f"Gemini OK on {model} (round {round_num + 1}), ~{len(resp.text)} chars")
-                return resp.json()
-            except requests.exceptions.Timeout:
-                last_error = f"Timeout calling {model}"
-                logger.warning(last_error)
+    for model in GEMINI_MODELS:
+        url = f"{GEMINI_API_BASE}/{model}:generateContent?key={GOOGLE_API_KEY}"
+        try:
+            resp = requests.post(url, json=payload, timeout=15)
+            if resp.status_code == 429:
+                reason = resp.text[:200]
+                logger.warning(f"429 on {model}: {reason}")
+                last_error = f"Rate limited on {model}"
                 continue
-            except Exception as e:
-                last_error = str(e)
-                logger.warning(f"Error calling {model}: {e}")
+            if resp.status_code != 200:
+                body = resp.text[:300]
+                logger.warning(f"{model} returned {resp.status_code}: {body}")
+                last_error = f"{model} returned {resp.status_code}"
                 continue
+            logger.info(f"Gemini OK on {model}, ~{len(resp.text)} chars")
+            return resp.json()
+        except requests.exceptions.Timeout:
+            last_error = f"Timeout calling {model}"
+            logger.warning(last_error)
+            continue
+        except Exception as e:
+            last_error = str(e)
+            logger.warning(f"Error calling {model}: {e}")
+            continue
 
     raise RuntimeError(
         f"All Gemini models exhausted: {_sanitize_error(last_error or 'Unknown error')}"
