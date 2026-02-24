@@ -30,6 +30,7 @@ GEMINI_MODELS = ["gemini-2.0-flash-lite", "gemini-2.0-flash"]
 GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 
 # OpenAI fallback (only used when ALL Gemini models are rate-limited)
+# OpenAI model used as fallback (fast + cheap)
 OPENAI_MODEL = "gpt-4o-mini"
 OPENAI_API_URL = "https://api.openai.com/v1/chat/completions"
 
