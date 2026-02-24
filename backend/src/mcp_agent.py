@@ -6,8 +6,9 @@ and runs an agentic loop: the LLM decides which MCP tools to call,
 the agent executes them via the MCP protocol, and yields reasoning steps
 for real-time streaming to the frontend.
 
-LLM strategy: tries Gemini (free tier, 2 models) first, falls back to OpenAI
-if all Gemini models are rate-limited.
+LLM provider strategy (multi-provider, LLM-agnostic):
+  1. Google Gemini free tier — tries gemini-2.0-flash-lite, then gemini-2.0-flash
+  2. OpenAI GPT-4o-mini — automatic fallback when all Gemini models are rate-limited
 """
 
 import json
