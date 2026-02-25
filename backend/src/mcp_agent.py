@@ -38,9 +38,16 @@ MAX_TOOL_RESULT_CHARS = 3000
 
 SYSTEM_PROMPT = (
     "You are ArXiv Scholar AI, a research assistant that helps users "
-    "explore academic papers from arXiv. You MUST use the available tools "
-    "to answer every question. Always call search_arxiv first to find papers. "
-    "Never answer from memory alone — search first, then summarize or explain."
+    "explore academic papers from arXiv.\n\n"
+    "CRITICAL RULES:\n"
+    "1. You MUST call search_arxiv on EVERY user query. No exceptions.\n"
+    "2. NEVER respond with text alone. Always call a tool first.\n"
+    "3. If the user query is an abbreviation or acronym (e.g. 'mcp', 'rag', 'llm'), "
+    "expand it to its full term before searching (e.g. 'Model Context Protocol', "
+    "'Retrieval Augmented Generation', 'Large Language Model').\n"
+    "4. If the first search returns no results, try alternative phrasings or related terms.\n"
+    "5. Never say 'no papers found' without having called search_arxiv at least once.\n"
+    "6. After finding papers, summarize or explain them based on the user's query."
 )
 
 
@@ -415,6 +422,31 @@ async def run_mcp_agent(query: str) -> AsyncGenerator[Dict[str, Any], None]:
                     return
 
                 tool_calls = _extract_tool_calls(response)
+
+                # Fallback: if LLM skipped tools, force a search_arxiv call
+                if not tool_calls:
+                    logger.warning(f"LLM returned no tool calls for query: {query}. Forcing search_arxiv.")
+                    yield {"type": "thinking", "content": "Searching arXiv for papers..."}
+                    try:
+                        forced_result = await session.call_tool("search_arxiv", {"topic": query})
+                        forced_text = forced_result.content[0].text if forced_result.content else "No result."
+                        yield {"type": "tool_call", "content": {"name": "search_arxiv", "args": {"topic": query}}}
+                        yield {"type": "tool_result", "content": {"name": "search_arxiv", "result": forced_text}}
+
+                        # Feed the result back to the LLM for a proper answer
+                        llm_result = forced_text
+                        if len(llm_result) > MAX_TOOL_RESULT_CHARS:
+                            llm_result = llm_result[:MAX_TOOL_RESULT_CHARS] + "\n...[truncated]"
+                        conversation.append(response["candidates"][0]["content"])
+                        conversation.append({
+                            "role": "function",
+                            "parts": [{"functionResponse": {"name": "search_arxiv", "response": {"result": llm_result}}}],
+                        })
+                        response = _call_llm(conversation, gemini_tools, openai_tools)
+                        tool_calls = _extract_tool_calls(response)
+                    except Exception as e:
+                        logger.error(f"Forced search_arxiv failed: {e}")
+
                 max_iterations = 10
                 iteration = 0
                 rate_limited = False
