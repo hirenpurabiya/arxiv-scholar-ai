@@ -342,9 +342,13 @@ def _call_llm(gemini_messages: list, gemini_tools: list, openai_tools: list) -> 
         try:
             return _call_openai(gemini_messages, openai_tools)
         except RuntimeError as openai_err:
+            err_str = str(openai_err)
+            if "401" in err_str:
+                logger.error(f"OpenAI auth failed: {openai_err}")
+                raise RuntimeError("OpenAI authentication failed. Check API key permissions.")
             logger.error(f"OpenAI fallback also failed: {openai_err}")
             raise RuntimeError(
-                f"AI is busy ({_sanitize_error(str(openai_err))}). Please try again."
+                f"AI is busy ({_sanitize_error(err_str)}). Please try again."
             )
 
     raise RuntimeError("No AI API key configured.")
@@ -497,8 +501,13 @@ async def run_mcp_agent(query: str) -> AsyncGenerator[Dict[str, Any], None]:
                         response = _call_llm(conversation, gemini_tools, openai_tools)
                     except Exception as e:
                         logger.error(f"LLM follow-up call failed: {e}")
-                        yield {"type": "error", "content": _sanitize_error(str(e))}
-                        return
+                        # Graceful fallback: papers were already sent to frontend
+                        # via tool_result, so show a helpful message instead of error
+                        yield {
+                            "type": "answer",
+                            "content": "I found the papers above but couldn't generate a detailed summary right now due to high demand. You can click on any paper to read more, or try again in about 60 seconds for a full AI summary.",
+                        }
+                        break
 
                     tool_calls = _extract_tool_calls(response)
 
