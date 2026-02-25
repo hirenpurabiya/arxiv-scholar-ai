@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Article } from "@/lib/types";
 // import { summarizeArticle } from "@/lib/api";
 import ELI10Chat from "./ELI10Chat";
@@ -13,6 +13,14 @@ interface ArticleDetailProps {
 export default function ArticleDetail({ article, onBack }: ArticleDetailProps) {
   const [showChat, setShowChat] = useState(false);
   const chatRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to chat on mobile when it opens
+  useEffect(() => {
+    if (showChat && window.innerWidth < 1024) {
+      chatRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [showChat]);
+
   // Quick Summary - hidden (was often same as abstract)
   // const [aiSummary, setAiSummary] = useState<string | null>(null);
   // const [isLoadingSummary, setIsLoadingSummary] = useState(false);
@@ -110,14 +118,7 @@ export default function ArticleDetail({ article, onBack }: ArticleDetailProps) {
                   Explain Like I&apos;m 10
                 </h2>
                 <button
-                  onClick={() => {
-                    setShowChat(true);
-                    setTimeout(() => {
-                      if (window.innerWidth < 1024) {
-                        chatRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-                      }
-                    }, 100);
-                  }}
+                  onClick={() => setShowChat(true)}
                   className="px-5 py-2.5 bg-slate-700 text-white font-medium rounded-xl hover:bg-slate-800 transition-colors shadow-sm"
                 >
                   Explain Like I&apos;m 10
