@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Article } from "@/lib/types";
 // import { summarizeArticle } from "@/lib/api";
 import ELI10Chat from "./ELI10Chat";
@@ -12,6 +12,7 @@ interface ArticleDetailProps {
 
 export default function ArticleDetail({ article, onBack }: ArticleDetailProps) {
   const [showChat, setShowChat] = useState(false);
+  const chatRef = useRef<HTMLDivElement>(null);
   // Quick Summary - hidden (was often same as abstract)
   // const [aiSummary, setAiSummary] = useState<string | null>(null);
   // const [isLoadingSummary, setIsLoadingSummary] = useState(false);
@@ -111,7 +112,11 @@ export default function ArticleDetail({ article, onBack }: ArticleDetailProps) {
                 <button
                   onClick={() => {
                     setShowChat(true);
-                    setTimeout(() => window.scrollTo({ top: 0, behavior: "smooth" }), 50);
+                    setTimeout(() => {
+                      if (window.innerWidth < 1024) {
+                        chatRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+                      }
+                    }, 100);
                   }}
                   className="px-5 py-2.5 bg-slate-700 text-white font-medium rounded-xl hover:bg-slate-800 transition-colors shadow-sm"
                 >
@@ -143,7 +148,7 @@ export default function ArticleDetail({ article, onBack }: ArticleDetailProps) {
 
         {/* Chat panel (below article on mobile, right on desktop) */}
         {showChat && (
-          <div className="w-full lg:w-96 flex-shrink-0 min-w-0">
+          <div ref={chatRef} className="w-full lg:w-96 flex-shrink-0 min-w-0">
             <div className="sticky top-4">
               <ELI10Chat
                 articleId={article.id}
